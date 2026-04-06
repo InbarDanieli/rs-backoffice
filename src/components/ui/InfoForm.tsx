@@ -7,7 +7,7 @@ import {
   USER_PROFILE_SECTIONS,
   DEFAULT_REQUIRED_FIELDS,
 } from "@/lib/user-profile-fields";
-import type { UserRole } from "@/lib/users";
+import { type UserRole } from "@/lib/users";
 import styles from "./InfoForm.module.css";
 
 export interface InfoFormValues {

@@ -9,20 +9,22 @@ export interface SponsorPosition {
 }
 
 export interface SponsorTestimonial {
-  image: string;       // base64 square image
+  image: string; // base64 square image
   testimonial: string;
   authorName: string;
   title: string;
 }
 
+export type SponsorTier = "game-changer" | "organizer" | "community";
+
 export interface Sponsor {
   id: string;
   yearId: string;
-  name: string;                        // company name
+  name: string; // company name
   website: string;
-  description: string;                 // free text, up to 3 paragraphs
-  logo: string;                        // base64 PNG with transparency
-  carouselImages: string[];            // up to 8, base64 16:9
+  description: string; // free text, up to 3 paragraphs
+  logo: string; // base64 PNG with transparency
+  carouselImages: string[]; // up to 8, base64 16:9
   linkedin: string;
   bluesky: string;
   facebook: string;
@@ -32,16 +34,25 @@ export interface Sponsor {
   youtube: string;
   github: string;
   medium: string;
-  techStack: string[];                 // buzzword tags
-  positions: SponsorPosition[];        // 2–8 items
-  testimonials: SponsorTestimonial[];  // up to 3
+  techStack: string[]; // buzzword tags
+  positions: SponsorPosition[]; // 2–8 items
+  testimonials: SponsorTestimonial[]; // up to 3
   publicToken?: string;
   publicTokenExpiresAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  tier: SponsorTier;
 }
 
-export type UpdatableSponsorFields = Omit<Sponsor, "id" | "yearId" | "publicToken" | "publicTokenExpiresAt" | "createdAt" | "updatedAt">;
+export type UpdatableSponsorFields = Omit<
+  Sponsor,
+  | "id"
+  | "yearId"
+  | "publicToken"
+  | "publicTokenExpiresAt"
+  | "createdAt"
+  | "updatedAt"
+>;
 
 async function getCollection(): Promise<Collection<Sponsor>> {
   const client = await clientPromise;
@@ -66,13 +77,18 @@ export async function findSponsorById(id: string): Promise<Sponsor | null> {
   return doc ? toSponsor(doc) : null;
 }
 
-export async function findSponsorByToken(token: string): Promise<Sponsor | null> {
+export async function findSponsorByToken(
+  token: string,
+): Promise<Sponsor | null> {
   const col = await getCollection();
   const doc = await col.findOne({ publicToken: token });
   return doc ? toSponsor(doc) : null;
 }
 
-export async function createSponsor(yearId: string, name: string): Promise<Sponsor> {
+export async function createSponsor(
+  yearId: string,
+  name: string,
+): Promise<Sponsor> {
   const col = await getCollection();
   const now = new Date();
   const sponsor: Sponsor = {
@@ -97,12 +113,16 @@ export async function createSponsor(yearId: string, name: string): Promise<Spons
     testimonials: [],
     createdAt: now,
     updatedAt: now,
+    tier: "game-changer",
   };
   await col.insertOne(sponsor);
   return sponsor;
 }
 
-export async function updateSponsor(id: string, fields: Partial<UpdatableSponsorFields>): Promise<void> {
+export async function updateSponsor(
+  id: string,
+  fields: Partial<UpdatableSponsorFields>,
+): Promise<void> {
   const col = await getCollection();
   await col.updateOne({ id }, { $set: { ...fields, updatedAt: new Date() } });
 }

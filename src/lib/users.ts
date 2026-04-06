@@ -69,10 +69,12 @@ export async function findUserById(id: string): Promise<User | null> {
   return doc ? toUser(doc) : null;
 }
 
-
 export async function findUsersByYear(yearId: string): Promise<User[]> {
   const col = await getCollection();
-  const docs = await col.find({ years: yearId }).project<WithId<User>>({ _id: 0 }).toArray();
+  const docs = await col
+    .find({ years: yearId })
+    .project<WithId<User>>({ _id: 0 })
+    .toArray();
   return docs.map(toUser);
 }
 
@@ -93,7 +95,7 @@ export async function upsertUser(data: {
     if (data.yearId) {
       await col.updateOne(
         { email: data.email },
-        { $set: updates, $addToSet: { years: data.yearId } }
+        { $set: updates, $addToSet: { years: data.yearId } },
       );
     } else {
       await col.updateOne({ email: data.email }, { $set: updates });
@@ -134,20 +136,26 @@ export async function upsertUser(data: {
 }
 
 /** Add a year ID to a user's years array (when they are enrolled in a year). */
-export async function addYearToUser(email: string, yearId: string): Promise<void> {
+export async function addYearToUser(
+  email: string,
+  yearId: string,
+): Promise<void> {
   const col = await getCollection();
   await col.updateOne(
     { email: email.toLowerCase() },
-    { $addToSet: { years: yearId }, $set: { updatedAt: new Date() } }
+    { $addToSet: { years: yearId }, $set: { updatedAt: new Date() } },
   );
 }
 
 /** Remove a year ID from a user's years array (when they are removed from a year). */
-export async function removeYearFromUser(email: string, yearId: string): Promise<void> {
+export async function removeYearFromUser(
+  email: string,
+  yearId: string,
+): Promise<void> {
   const col = await getCollection();
   await col.updateOne(
     { email: email.toLowerCase() },
-    { $pull: { years: yearId }, $set: { updatedAt: new Date() } }
+    { $pull: { years: yearId }, $set: { updatedAt: new Date() } },
   );
 }
 
@@ -156,7 +164,7 @@ export async function removeYearFromAllUsers(yearId: string): Promise<void> {
   const col = await getCollection();
   await col.updateMany(
     { years: yearId },
-    { $pull: { years: yearId }, $set: { updatedAt: new Date() } }
+    { $pull: { years: yearId }, $set: { updatedAt: new Date() } },
   );
 }
 
@@ -209,7 +217,7 @@ export async function findOrCreateByEmail(email: string): Promise<User> {
 
 export async function updateUserById(
   id: string,
-  fields: Partial<UpdatableUserFields>
+  fields: Partial<UpdatableUserFields>,
 ): Promise<void> {
   const col = await getCollection();
   await col.updateOne({ id }, { $set: { ...fields, updatedAt: new Date() } });

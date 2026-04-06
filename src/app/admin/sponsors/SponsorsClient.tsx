@@ -1,19 +1,36 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { PublicLinkModal } from "@/components/ui/PublicLinkModal";
-import type { Sponsor } from "@/lib/sponsors";
+import { Select } from "@/components/ui/Select";
+import { type Sponsor } from "@/lib/sponsors";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import styles from "./sponsors.module.css";
 
 interface SponsorsClientProps {
   yearId: string;
 }
 
+const TIER_OPTIONS = [
+  { value: "game-changer", label: "Game Changer" },
+  { value: "organizer", label: "Organizer" },
+  { value: "community", label: "Community" },
+];
+
 function TrashIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polyline points="3 6 5 6 21 6" />
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
       <path d="M10 11v6M14 11v6" />
@@ -24,7 +41,17 @@ function TrashIcon() {
 
 function LinkIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
       <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
     </svg>
@@ -39,7 +66,10 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
   const [error, setError] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [publicLinkSponsor, setPublicLinkSponsor] = useState<Sponsor | null>(null);
+  const [publicLinkSponsor, setPublicLinkSponsor] = useState<Sponsor | null>(
+    null,
+  );
+  const [savingRoleForId, setSavingRoleForId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -68,7 +98,7 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
         body: JSON.stringify({ yearId, name: trimmed }),
       });
       if (!res.ok) throw new Error("Failed to add sponsor");
-      const created = await res.json() as Sponsor;
+      const created = (await res.json()) as Sponsor;
       setSponsors((prev) => [...prev, created]);
       setNewName("");
     } catch {
@@ -91,6 +121,24 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
 
   const pendingDeleteSponsor = sponsors.find((s) => s.id === pendingDeleteId);
 
+  async function handleTierChange(sponsorId: string, newTier: Sponsor["tier"]) {
+    setSavingRoleForId(sponsorId);
+    try {
+      const res = await fetch(`/api/sponsors/${sponsorId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ tier: newTier }),
+      });
+      if (res.ok) {
+        setSponsors((prev) =>
+          prev.map((s) => (s.id === sponsorId ? { ...s, tier: newTier } : s)),
+        );
+      }
+    } catch {
+      setError("Failed to update sponsor tier.");
+    } finally {
+      setSavingRoleForId(null);
+    }
+  }
   return (
     <>
       <div className={styles.sponsorsCard}>
@@ -130,6 +178,15 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
                 </div>
                 <span className={styles.sponsorName}>{sponsor.name}</span>
                 <div className={styles.rowActions}>
+                  <Select
+                    width={150}
+                    options={TIER_OPTIONS}
+                    value={sponsor.tier ?? "game-changer"}
+                    onChange={(newTier) =>
+                      handleTierChange(sponsor.id, newTier as Sponsor["tier"])
+                    }
+                    disabled={savingRoleForId === sponsor.id}
+                  />
                   <button
                     type="button"
                     className={styles.actionBtn}
@@ -162,14 +219,18 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
         )}
 
         {!loading && sponsors.length > 0 && (
-          <p className={styles.hint}>{sponsors.length} sponsor{sponsors.length !== 1 ? "s" : ""}</p>
+          <p className={styles.hint}>
+            {sponsors.length} sponsor{sponsors.length !== 1 ? "s" : ""}
+          </p>
         )}
       </div>
 
       <ConfirmModal
         isOpen={!!pendingDeleteId}
         onClose={() => setPendingDeleteId(null)}
-        onConfirm={() => { if (pendingDeleteId) handleDelete(pendingDeleteId); }}
+        onConfirm={() => {
+          if (pendingDeleteId) handleDelete(pendingDeleteId);
+        }}
         title="Delete sponsor?"
         description={`This will permanently delete "${pendingDeleteSponsor?.name ?? ""}". This action cannot be undone.`}
         shouldConfirm
@@ -191,12 +252,22 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
             setSponsors((prev) =>
               prev.map((s) =>
                 s.id === publicLinkSponsor.id
-                  ? { ...s, publicToken: token ?? undefined, publicTokenExpiresAt: expiresAt ?? undefined }
-                  : s
-              )
+                  ? {
+                      ...s,
+                      publicToken: token ?? undefined,
+                      publicTokenExpiresAt: expiresAt ?? undefined,
+                    }
+                  : s,
+              ),
             );
             setPublicLinkSponsor((prev) =>
-              prev ? { ...prev, publicToken: token ?? undefined, publicTokenExpiresAt: expiresAt ?? undefined } : null
+              prev
+                ? {
+                    ...prev,
+                    publicToken: token ?? undefined,
+                    publicTokenExpiresAt: expiresAt ?? undefined,
+                  }
+                : null,
             );
           }}
         />
