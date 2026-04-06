@@ -1,0 +1,37 @@
+/* ── Profile + form grid ── */
+.grid {
+  display: grid;
+  grid-template-columns: 13.5rem 1fr;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.profileCard {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-8) var(--space-6);
+  display: flex;
+  justify-content: center;
+}
+
+.formCard {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+}
+
+/* ── Responsive ── */
+@media (max-width: 960px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profileCard {
+    padding: var(--space-6);
+  }
+}
+
