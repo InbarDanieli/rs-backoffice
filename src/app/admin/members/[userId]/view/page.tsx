@@ -1,13 +1,12 @@
-import { redirect, notFound } from "next/navigation";
-import { cookies } from "next/headers";
-import Link from "next/link";
-import Image from "next/image";
-import { getSession } from "@/lib/session";
-import { findUserById } from "@/lib/users";
-import { listYears } from "@/lib/years";
-import { USER_PROFILE_SECTIONS } from "@/lib/user-profile-fields";
-import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { AdminPageLayout } from "@/components/layout/AdminPageLayout";
+import { AdminSidebar } from "@/components/layout/AdminSidebar";
+import { getSession } from "@/lib/session";
+import { USER_PROFILE_SECTIONS } from "@/lib/user-profile-fields";
+import { findUserById } from "@/lib/users";
+import { getActiveYear, listYears } from "@/lib/years";
+import Image from "next/image";
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import styles from "./view.module.css";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -48,13 +47,14 @@ export default async function MemberViewPage({ params }: PageProps) {
   if (!session) redirect("/admin/login");
 
   const { userId } = await params;
-  const cookieStore = await cookies();
-  const activeYearId = cookieStore.get("active_year_id")?.value ?? null;
-
-  const [user, years] = await Promise.all([
+  
+  const [user, years, activeYear] = await Promise.all([
     findUserById(userId),
     listYears(),
+    getActiveYear(),
   ]);
+  
+  const activeYearId = activeYear?.id ?? null;
 
   if (!user) notFound();
 

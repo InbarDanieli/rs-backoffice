@@ -33,13 +33,13 @@ export default async function SponsorsPage() {
   const session = await getSession();
   if (!session) redirect("/admin/login");
 
-  const cookieStore = await cookies();
-  const activeYearId = cookieStore.get("active_year_id")?.value ?? null;
-
+  
   const [years, activeYear] = await Promise.all([
     listYears(),
     getActiveYear(),
   ]);
+  
+  const activeYearId = activeYear?.id ?? null;
 
   const navItems = [
     { label: "My Profile", href: "/admin/dashboard", icon: <ProfileIcon /> },

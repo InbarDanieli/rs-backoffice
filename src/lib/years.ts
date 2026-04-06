@@ -85,17 +85,23 @@ export async function createYear(data: {
 export async function setDefaultYear(id: string): Promise<void> {
   const col = await getCollection();
   await col.updateMany({}, { $set: { isDefault: false } });
-  await col.updateOne({ id }, { $set: { isDefault: true, updatedAt: new Date() } });
+  await col.updateOne(
+    { id },
+    { $set: { isDefault: true, updatedAt: new Date() } },
+  );
 }
 
-export async function addMemberToYear(yearId: string, email: string): Promise<void> {
+export async function addMemberToYear(
+  yearId: string,
+  email: string,
+): Promise<void> {
   const col = await getCollection();
   await col.updateOne(
     { id: yearId },
     {
       $addToSet: { memberEmails: email.toLowerCase().trim() },
       $set: { updatedAt: new Date() },
-    }
+    },
   );
 }
 
@@ -104,13 +110,16 @@ export async function deleteYear(id: string): Promise<void> {
   await col.deleteOne({ id });
 }
 
-export async function removeMemberFromYear(yearId: string, email: string): Promise<void> {
+export async function removeMemberFromYear(
+  yearId: string,
+  email: string,
+): Promise<void> {
   const col = await getCollection();
   await col.updateOne(
     { id: yearId },
     {
       $pull: { memberEmails: email.toLowerCase().trim() },
       $set: { updatedAt: new Date() },
-    }
+    },
   );
 }

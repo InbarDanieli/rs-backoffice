@@ -28,7 +28,12 @@ interface ContextMenuPos {
   right: number;
 }
 
-export function YearSelector({ years: yearsProp, activeYearId }: YearSelectorProps) {
+export function YearSelector({
+  years: yearsProp,
+  activeYearId,
+}: YearSelectorProps) {
+  console.log({ activeYearId });
+
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [years, setYears] = useState(yearsProp);
@@ -39,7 +44,9 @@ export function YearSelector({ years: yearsProp, activeYearId }: YearSelectorPro
   const [setAsDefault, setSetAsDefault] = useState(true);
   const [creating, setCreating] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [contextMenuPos, setContextMenuPos] = useState<ContextMenuPos | null>(null);
+  const [contextMenuPos, setContextMenuPos] = useState<ContextMenuPos | null>(
+    null,
+  );
   const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<YearOption | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -48,10 +55,15 @@ export function YearSelector({ years: yearsProp, activeYearId }: YearSelectorPro
   const dropdownRef = useRef<HTMLDivElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setMounted(true); }, []);
-  useEffect(() => { setYears(yearsProp); }, [yearsProp]);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  useEffect(() => {
+    setYears(yearsProp);
+  }, [yearsProp]);
 
-  const activeYear = years.find((y) => y.id === activeYearId) ?? years[0] ?? null;
+  const activeYear =
+    years.find((y) => y.id === activeYearId) ?? years[0] ?? null;
 
   // Close on outside click — check trigger, dropdown, and portaled context menu
   useEffect(() => {
@@ -75,7 +87,11 @@ export function YearSelector({ years: yearsProp, activeYearId }: YearSelectorPro
   function toggleDropdown() {
     if (!isOpen && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
-      setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+      setDropdownPos({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
     }
     setIsOpen((v) => !v);
     setShowCreate(false);
@@ -113,7 +129,9 @@ export function YearSelector({ years: yearsProp, activeYearId }: YearSelectorPro
     setContextMenuPos(null);
     try {
       await fetch(`/api/years/${yearId}`, { method: "PATCH" });
-      setYears((prev) => prev.map((y) => ({ ...y, isDefault: y.id === yearId })));
+      setYears((prev) =>
+        prev.map((y) => ({ ...y, isDefault: y.id === yearId })),
+      );
       router.refresh();
     } finally {
       setSettingDefaultId(null);
@@ -136,7 +154,9 @@ export function YearSelector({ years: yearsProp, activeYearId }: YearSelectorPro
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/years/${deleteTarget.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/years/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
       if (res.ok) {
         setYears((prev) => prev.filter((y) => y.id !== deleteTarget.id));
         if (deleteTarget.id === activeYearId) {
@@ -164,7 +184,9 @@ export function YearSelector({ years: yearsProp, activeYearId }: YearSelectorPro
         const year = (await res.json()) as YearOption;
         document.cookie = `active_year_id=${year.id}; path=/; max-age=${60 * 60 * 24 * 365}`;
         setYears((prev) => [
-          ...(year.isDefault ? prev.map((y) => ({ ...y, isDefault: false })) : prev),
+          ...(year.isDefault
+            ? prev.map((y) => ({ ...y, isDefault: false }))
+            : prev),
           year,
         ]);
         setNewName("");
@@ -178,127 +200,146 @@ export function YearSelector({ years: yearsProp, activeYearId }: YearSelectorPro
     }
   }
 
-  const dropdown = isOpen && dropdownPos ? (
-    <div
-      ref={dropdownRef}
-      className={styles.dropdown}
-      role="listbox"
-      style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
-    >
-      {years.length === 0 && (
-        <p className={styles.emptyHint}>No years yet. Create one below.</p>
-      )}
+  const dropdown =
+    isOpen && dropdownPos ? (
+      <div
+        ref={dropdownRef}
+        className={styles.dropdown}
+        role="listbox"
+        style={{
+          top: dropdownPos.top,
+          left: dropdownPos.left,
+          width: dropdownPos.width,
+        }}
+      >
+        {years.length === 0 && (
+          <p className={styles.emptyHint}>No years yet. Create one below.</p>
+        )}
 
-      {years.map((year) => (
-        <div key={year.id} className={styles.optionRow}>
+        {years.map((year) => (
+          <div key={year.id} className={styles.optionRow}>
+            <button
+              type="button"
+              role="option"
+              aria-selected={year.id === activeYear?.id}
+              className={`${styles.optionBtn} ${year.id === activeYear?.id ? styles.optionActive : ""}`}
+              onClick={() => selectYear(year.id)}
+            >
+              <span className={styles.optionName}>{year.name}</span>
+              <span className={styles.optionMeta}>
+                {year.isDefault && (
+                  <span className={styles.defaultBadge}>default</span>
+                )}
+                {year.id === activeYear?.id && <CheckIcon />}
+              </span>
+            </button>
+
+            <div className={styles.menuWrap}>
+              <button
+                type="button"
+                className={`${styles.menuBtn} ${openMenuId === year.id ? styles.menuBtnOpen : ""}`}
+                onClick={(e) => toggleMenu(e, year.id)}
+                aria-label={`Options for ${year.name}`}
+                disabled={settingDefaultId === year.id}
+              >
+                <DotsIcon />
+              </button>
+            </div>
+          </div>
+        ))}
+
+        <div className={styles.divider} />
+
+        {!showCreate ? (
           <button
             type="button"
-            role="option"
-            aria-selected={year.id === activeYear?.id}
-            className={`${styles.optionBtn} ${year.id === activeYear?.id ? styles.optionActive : ""}`}
-            onClick={() => selectYear(year.id)}
+            className={styles.createTrigger}
+            onClick={() => setShowCreate(true)}
           >
-            <span className={styles.optionName}>{year.name}</span>
-            <span className={styles.optionMeta}>
-              {year.isDefault && <span className={styles.defaultBadge}>default</span>}
-              {year.id === activeYear?.id && <CheckIcon />}
-            </span>
+            <PlusIcon />
+            New year
           </button>
-
-          <div className={styles.menuWrap}>
-            <button
-              type="button"
-              className={`${styles.menuBtn} ${openMenuId === year.id ? styles.menuBtnOpen : ""}`}
-              onClick={(e) => toggleMenu(e, year.id)}
-              aria-label={`Options for ${year.name}`}
-              disabled={settingDefaultId === year.id}
-            >
-              <DotsIcon />
-            </button>
-          </div>
-        </div>
-      ))}
-
-      <div className={styles.divider} />
-
-      {!showCreate ? (
-        <button type="button" className={styles.createTrigger} onClick={() => setShowCreate(true)}>
-          <PlusIcon />
-          New year
-        </button>
-      ) : (
-        <form className={styles.createForm} onSubmit={handleCreate}>
-          <input
-            type="text"
-            className={styles.createInput}
-            placeholder="Year name…"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            autoFocus
-          />
-          <label className={styles.createCheckbox}>
+        ) : (
+          <form className={styles.createForm} onSubmit={handleCreate}>
             <input
-              type="checkbox"
-              checked={setAsDefault}
-              onChange={(e) => setSetAsDefault(e.target.checked)}
+              type="text"
+              className={styles.createInput}
+              placeholder="Year name…"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              autoFocus
             />
-            Set as default
-          </label>
-          <div className={styles.createActions}>
-            <button
-              type="button"
-              className={styles.cancelBtn}
-              onClick={() => { setShowCreate(false); setNewName(""); }}
-            >
-              Cancel
-            </button>
-            <button type="submit" className={styles.submitBtn} disabled={!newName.trim() || creating}>
-              {creating ? "Creating…" : "Create"}
-            </button>
-          </div>
-        </form>
-      )}
-    </div>
-  ) : null;
+            <label className={styles.createCheckbox}>
+              <input
+                type="checkbox"
+                checked={setAsDefault}
+                onChange={(e) => setSetAsDefault(e.target.checked)}
+              />
+              Set as default
+            </label>
+            <div className={styles.createActions}>
+              <button
+                type="button"
+                className={styles.cancelBtn}
+                onClick={() => {
+                  setShowCreate(false);
+                  setNewName("");
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={styles.submitBtn}
+                disabled={!newName.trim() || creating}
+              >
+                {creating ? "Creating…" : "Create"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    ) : null;
 
-  const contextMenu = openMenuId && contextMenuPos ? (
-    <div
-      ref={contextMenuRef}
-      className={styles.contextMenu}
-      style={{ top: contextMenuPos.top, right: contextMenuPos.right }}
-    >
-      {(() => {
-        const year = years.find((y) => y.id === openMenuId);
-        if (!year) return null;
-        return (
-          <>
-            <button
-              type="button"
-              className={styles.contextItem}
-              onClick={(e) => handleSetDefault(e, year.id)}
-              disabled={year.isDefault}
-            >
-              <StarIcon />
-              {year.isDefault ? "Already default" : "Set as default"}
-            </button>
-            {!year.isDefault && (
-              <>
-                <div className={styles.contextDivider} />
-                <button
-                  type="button"
-                  className={`${styles.contextItem} ${styles.contextItemDanger}`}
-                  onClick={(e) => openDeleteModal(e, year)}
-                >
-                  <TrashIcon />
-                  Delete
-                </button>
-              </>
-            )}
-          </>
-        );
-      })()}
-    </div>
-  ) : null;
+  const contextMenu =
+    openMenuId && contextMenuPos ? (
+      <div
+        ref={contextMenuRef}
+        className={styles.contextMenu}
+        style={{ top: contextMenuPos.top, right: contextMenuPos.right }}
+      >
+        {(() => {
+          const year = years.find((y) => y.id === openMenuId);
+          if (!year) return null;
+          return (
+            <>
+              <button
+                type="button"
+                className={styles.contextItem}
+                onClick={(e) => handleSetDefault(e, year.id)}
+                disabled={year.isDefault}
+              >
+                <StarIcon />
+                {year.isDefault ? "Already default" : "Set as default"}
+              </button>
+              {!year.isDefault && (
+                <>
+                  <div className={styles.contextDivider} />
+                  <button
+                    type="button"
+                    className={`${styles.contextItem} ${styles.contextItemDanger}`}
+                    onClick={(e) => openDeleteModal(e, year)}
+                  >
+                    <TrashIcon />
+                    Delete
+                  </button>
+                </>
+              )}
+            </>
+          );
+        })()}
+      </div>
+    ) : null;
 
   return (
     <>
@@ -342,7 +383,17 @@ export function YearSelector({ years: yearsProp, activeYearId }: YearSelectorPro
 
 function CalendarIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
       <line x1="16" y1="2" x2="16" y2="6" />
       <line x1="8" y1="2" x2="8" y2="6" />
@@ -353,8 +404,21 @@ function CalendarIcon() {
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-      style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{
+        transform: open ? "rotate(180deg)" : "rotate(0deg)",
+        transition: "transform 0.15s",
+      }}
+    >
       <polyline points="6 9 12 15 18 9" />
     </svg>
   );
@@ -362,7 +426,17 @@ function ChevronIcon({ open }: { open: boolean }) {
 
 function CheckIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
@@ -370,7 +444,17 @@ function CheckIcon() {
 
 function PlusIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
@@ -379,7 +463,13 @@ function PlusIcon() {
 
 function DotsIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
       <circle cx="5" cy="12" r="2" />
       <circle cx="12" cy="12" r="2" />
       <circle cx="19" cy="12" r="2" />
@@ -389,7 +479,17 @@ function DotsIcon() {
 
 function StarIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
     </svg>
   );
@@ -397,7 +497,17 @@ function StarIcon() {
 
 function TrashIcon({ size = 13 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polyline points="3 6 5 6 21 6" />
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
       <path d="M10 11v6" />
