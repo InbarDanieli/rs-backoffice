@@ -61,6 +61,7 @@ export async function getYearIdByName(name: string): Promise<string | null> {
 export async function createYear(data: {
   name: string;
   isDefault: boolean;
+  userEmail: string;
 }): Promise<Year> {
   const col = await getCollection();
 
@@ -73,7 +74,7 @@ export async function createYear(data: {
     id: crypto.randomUUID(),
     name: data.name.trim(),
     isDefault: data.isDefault,
-    memberEmails: [],
+    memberEmails: ["rantav@gmail.com", data.userEmail],
     createdAt: now,
     updatedAt: now,
   };

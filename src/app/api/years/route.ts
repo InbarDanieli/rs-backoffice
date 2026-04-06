@@ -4,7 +4,8 @@ import { listYears, createYear } from "@/lib/years";
 
 export async function GET(): Promise<NextResponse> {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const years = await listYears();
   return NextResponse.json(years);
@@ -12,7 +13,8 @@ export async function GET(): Promise<NextResponse> {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: unknown;
   try {
@@ -26,9 +28,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const isDefault = raw.isDefault === true;
 
   if (!name) {
-    return NextResponse.json({ error: "Year name is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Year name is required" },
+      { status: 400 },
+    );
   }
 
-  const year = await createYear({ name, isDefault });
+  const year = await createYear({ name, isDefault, userEmail: session.email });
   return NextResponse.json(year, { status: 201 });
 }
