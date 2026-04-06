@@ -4,13 +4,14 @@ import { useState } from "react";
 import { ProfileCard } from "./ProfileCard";
 import { InfoForm, type InfoFormValues } from "./InfoForm";
 import styles from "./ProfileSection.module.css";
+import { UserRole } from "@/lib/users";
 
 interface ProfileSectionProps {
   userId: string;
   name: string;
   email: string;
   picture: string;
-  role?: string;
+  role?: UserRole;
   defaultValues: InfoFormValues;
 }
 
@@ -39,6 +40,7 @@ export function ProfileSection({
       <div className={styles.formCard}>
         <InfoForm
           userId={userId}
+          defaultRole={role}
           defaultValues={defaultValues}
           picture={picture}
         />

@@ -44,6 +44,7 @@ export function MemberEditClient({
           defaultValues={defaultValues}
           picture={picture}
           requireImage={false}
+          defaultRole={role}
           submitLabel="Save Changes"
         />
       </div>

@@ -63,6 +63,8 @@ export function InfoForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [selectedRole, setSelectedRole] = useState<UserRole>(defaultRole);
+  const [activeDefaultValues, setActiveDefaultValues] =
+    useState<InfoFormValues>(defaultValues);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -73,9 +75,10 @@ export function InfoForm({
     for (const fieldName of requiredFields) {
       if (!data.get(fieldName)?.toString().trim()) {
         const section = USER_PROFILE_SECTIONS.flatMap((s) => s.fields).find(
-          (f) => f.name === fieldName
+          (f) => f.name === fieldName,
         );
-        newErrors[fieldName] = `Please fill in your ${section?.label.toLowerCase() ?? fieldName}`;
+        newErrors[fieldName] =
+          `Please fill in your ${section?.label.toLowerCase() ?? fieldName}`;
       }
     }
 
@@ -104,6 +107,8 @@ export function InfoForm({
         body: JSON.stringify(body),
       });
 
+      setActiveDefaultValues({ ...defaultValues, ...body });
+
       setSaveStatus(res.ok ? "success" : "error");
     } catch {
       setSaveStatus("error");
@@ -120,7 +125,6 @@ export function InfoForm({
 
   return (
     <form className={styles.form} onSubmit={handleSubmit} onReset={handleReset}>
-
       {/* ── Role selector (admin-only) ── */}
       {showRoleSelector && (
         <div className={styles.roleSection}>
@@ -169,7 +173,10 @@ export function InfoForm({
                   type={field.type}
                   placeholder={field.placeholder}
                   rows={field.rows}
-                  defaultValue={defaultValues[field.name as keyof InfoFormValues] ?? ""}
+                  defaultValue={
+                    activeDefaultValues[field.name as keyof InfoFormValues] ??
+                    ""
+                  }
                 />
               </div>
             ))}
@@ -180,10 +187,14 @@ export function InfoForm({
       {/* ── Validation errors ── */}
       {errorMessages.length > 0 && (
         <div className={styles.errorBox} role="alert">
-          <p className={styles.errorTitle}>Please fix the following before saving:</p>
+          <p className={styles.errorTitle}>
+            Please fix the following before saving:
+          </p>
           <ul className={styles.errorList}>
             {errorMessages.map((msg) => (
-              <li key={msg} className={styles.errorItem}>{msg}</li>
+              <li key={msg} className={styles.errorItem}>
+                {msg}
+              </li>
             ))}
           </ul>
         </div>
@@ -193,20 +204,29 @@ export function InfoForm({
       <div className={styles.formActions}>
         <div className={styles.statusMessage}>
           {saveStatus === "success" && (
-            <span className={styles.savedSuccess}>Info updated successfully.</span>
+            <span className={styles.savedSuccess}>
+              Info updated successfully.
+            </span>
           )}
           {saveStatus === "error" && (
-            <span className={styles.savedError}>Failed to save. Please try again.</span>
+            <span className={styles.savedError}>
+              Failed to save. Please try again.
+            </span>
           )}
         </div>
         <div className={styles.actionButtons}>
-          <Button variant="ghost" type="reset">{discardLabel}</Button>
-          <Button variant="solid" type="submit" disabled={saveStatus === "saving"}>
+          <Button variant="ghost" type="reset">
+            {discardLabel}
+          </Button>
+          <Button
+            variant="solid"
+            type="submit"
+            disabled={saveStatus === "saving"}
+          >
             {saveStatus === "saving" ? "Saving…" : submitLabel}
           </Button>
         </div>
       </div>
-
     </form>
   );
 }
