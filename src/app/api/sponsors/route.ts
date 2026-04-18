@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSessionWithRole, canManageSponsorsApi, apiForbidden } from "@/lib/admin-authorization";
 import { listSponsorsByYear, createSponsor } from "@/lib/sponsors";
 
 export async function GET(request: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const sessionData = await getSessionWithRole();
+  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canManageSponsorsApi(sessionData.role)) return apiForbidden();
 
   const { searchParams } = new URL(request.url);
   const yearId = searchParams.get("yearId");
@@ -15,8 +16,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const sessionData = await getSessionWithRole();
+  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canManageSponsorsApi(sessionData.role)) return apiForbidden();
 
   const body = (await request.json()) as { yearId?: string; name?: string };
   const { yearId, name } = body;

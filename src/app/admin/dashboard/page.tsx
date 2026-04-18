@@ -1,10 +1,16 @@
 import { AdminPageLayout } from "@/components/layout/AdminPageLayout";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { ProfileSection } from "@/components/ui/ProfileSection";
+import {
+  assertAdminPageAccess,
+  isAdmin,
+  shouldShowMembersNav,
+  shouldShowSponsorsNav,
+} from "@/lib/admin-authorization";
 import { getSession } from "@/lib/session";
 import { findUserById } from "@/lib/users";
 import { getActiveYear, listYears } from "@/lib/years";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 const ProfileIcon = () => (
   <svg
@@ -69,6 +75,9 @@ export default async function AdminDashboardPage() {
     getActiveYear(),
   ]);
 
+  if (!dbUser) notFound();
+  assertAdminPageAccess("/admin/dashboard", dbUser.role);
+
   const activeYearId = activeYear?.id ?? null;
 
   const navItems = [
@@ -78,8 +87,12 @@ export default async function AdminDashboardPage() {
       icon: <ProfileIcon />,
       active: true,
     },
-    { label: "Team Members", href: "/admin/members", icon: <UsersIcon /> },
-    { label: "Sponsors", href: "/admin/sponsors", icon: <BriefcaseIcon /> },
+    ...(shouldShowMembersNav(dbUser.role)
+      ? [{ label: "Team Members", href: "/admin/members", icon: <UsersIcon /> } as const]
+      : []),
+    ...(shouldShowSponsorsNav(dbUser.role)
+      ? [{ label: "Sponsors", href: "/admin/sponsors", icon: <BriefcaseIcon /> } as const]
+      : []),
   ];
 
   return (
@@ -89,6 +102,7 @@ export default async function AdminDashboardPage() {
           navItems={navItems}
           years={years}
           activeYearId={activeYearId}
+          canManageYears={isAdmin(dbUser.role)}
         />
       }
       title="My Info"

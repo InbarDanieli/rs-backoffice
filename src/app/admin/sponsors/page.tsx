@@ -1,6 +1,12 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { getSession } from "@/lib/session";
+import {
+  assertAdminPageAccess,
+  isAdmin,
+  shouldShowMembersNav,
+} from "@/lib/admin-authorization";
+import { findUserById } from "@/lib/users";
 import { listYears, getActiveYear } from "@/lib/years";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { AdminPageLayout } from "@/components/layout/AdminPageLayout";
@@ -33,17 +39,22 @@ export default async function SponsorsPage() {
   const session = await getSession();
   if (!session) redirect("/admin/login");
 
-  
-  const [years, activeYear] = await Promise.all([
+  const [currentUser, years, activeYear] = await Promise.all([
+    findUserById(session.userId),
     listYears(),
     getActiveYear(),
   ]);
-  
+
+  if (!currentUser) notFound();
+  assertAdminPageAccess("/admin/sponsors", currentUser.role);
+
   const activeYearId = activeYear?.id ?? null;
 
   const navItems = [
     { label: "My Profile", href: "/admin/dashboard", icon: <ProfileIcon /> },
-    { label: "Team Members", href: "/admin/members", icon: <UsersIcon /> },
+    ...(shouldShowMembersNav(currentUser.role)
+      ? [{ label: "Team Members", href: "/admin/members", icon: <UsersIcon /> } as const]
+      : []),
     { label: "Sponsors", href: "/admin/sponsors", icon: <BriefcaseIcon />, active: true },
   ];
 
@@ -53,7 +64,7 @@ export default async function SponsorsPage() {
 
   return (
     <AdminPageLayout
-      sidebar={<AdminSidebar navItems={navItems} years={years} activeYearId={activeYearId} />}
+      sidebar={<AdminSidebar navItems={navItems} years={years} activeYearId={activeYearId} canManageYears={isAdmin(currentUser.role)} />}
       title="Sponsors"
       subtitle={subtitle}
       maxWidth="52rem"

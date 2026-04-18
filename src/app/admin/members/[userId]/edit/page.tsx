@@ -1,5 +1,6 @@
 import { AdminPageLayout } from "@/components/layout/AdminPageLayout";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
+import { assertAdminPageAccess, isAdmin } from "@/lib/admin-authorization";
 import { getSession } from "@/lib/session";
 import { findUserById } from "@/lib/users";
 import { getActiveYear, listYears } from "@/lib/years";
@@ -69,12 +70,16 @@ export default async function MemberEditPage({ params }: PageProps) {
 
   const { userId } = await params;
 
-  const [user, years, activeYear] = await Promise.all([
+  const [currentUser, user, years, activeYear] = await Promise.all([
+    findUserById(session.userId),
     findUserById(userId),
     listYears(),
     getActiveYear(),
   ]);
   const activeYearId = activeYear?.id ?? null;
+
+  if (!currentUser) notFound();
+  assertAdminPageAccess("/admin/members", currentUser.role);
 
   if (!user) notFound();
 
@@ -96,6 +101,7 @@ export default async function MemberEditPage({ params }: PageProps) {
           navItems={navItems}
           years={years}
           activeYearId={activeYearId}
+          canManageYears={isAdmin(currentUser.role)}
         />
       }
       backLink={{ href: "/admin/members", label: "Team Members" }}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSessionWithRole, isAdmin, apiForbidden } from "@/lib/admin-authorization";
 import { findUserById, updateUserById, type UpdatableUserFields, type UserRole } from "@/lib/users";
 
 interface RouteParams {
@@ -12,16 +12,17 @@ export async function GET(
   _request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const sessionData = await getSessionWithRole();
+  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const user = await findUserById(id);
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+  if (!isAdmin(sessionData.role) && sessionData.session.userId !== id) {
+    return apiForbidden();
   }
+
+  const user = await findUserById(id);
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   return NextResponse.json(user);
 }
@@ -30,12 +31,14 @@ export async function PATCH(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const sessionData = await getSessionWithRole();
+  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+
+  if (!isAdmin(sessionData.role) && sessionData.session.userId !== id) {
+    return apiForbidden();
+  }
 
   let body: unknown;
   try {
@@ -66,7 +69,9 @@ export async function PATCH(
     medium: typeof raw.medium === "string" ? raw.medium.trim() : undefined,
     website: typeof raw.website === "string" ? raw.website.trim() : undefined,
     role:
-      typeof raw.role === "string" && VALID_ROLES.includes(raw.role as UserRole)
+      isAdmin(sessionData.role) &&
+      typeof raw.role === "string" &&
+      VALID_ROLES.includes(raw.role as UserRole)
         ? (raw.role as UserRole)
         : undefined,
   };

@@ -251,6 +251,9 @@ export function SponsorEditClient({
           (data as { error?: string }).error ?? `Error ${res.status}`,
         );
       }
+      setTimeout(() => {
+        setSaved(false)
+      }, 5000);
       setSaved(true);
     } catch (err) {
       setError(

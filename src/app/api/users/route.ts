@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSessionWithRole, isAdmin, apiForbidden } from "@/lib/admin-authorization";
 import { findOrCreateByEmail } from "@/lib/users";
 
 export async function POST(request: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const sessionData = await getSessionWithRole();
+  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAdmin(sessionData.role)) return apiForbidden();
 
   const body = (await request.json()) as { email?: string };
   const email = body.email?.trim().toLowerCase();

@@ -1,6 +1,7 @@
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { assertAdminPageAccess, isAdmin } from "@/lib/admin-authorization";
+import { findUserById } from "@/lib/users";
 import { listYears, getActiveYear } from "@/lib/years";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { AdminPageLayout } from "@/components/layout/AdminPageLayout";
@@ -34,11 +35,15 @@ export default async function MembersPage() {
   const session = await getSession();
   if (!session) redirect("/admin/login");
 
-  const [years, activeYear] = await Promise.all([
+  const [currentUser, years, activeYear] = await Promise.all([
+    findUserById(session.userId),
     listYears(),
     getActiveYear(),
   ]);
-  
+
+  if (!currentUser) notFound();
+  assertAdminPageAccess("/admin/members", currentUser.role);
+
   const activeYearId = activeYear?.id ?? null;
 
   const navItems = [
@@ -53,7 +58,7 @@ export default async function MembersPage() {
 
   return (
     <AdminPageLayout
-      sidebar={<AdminSidebar navItems={navItems} years={years} activeYearId={activeYearId} />}
+      sidebar={<AdminSidebar navItems={navItems} years={years} activeYearId={activeYearId} canManageYears={isAdmin(currentUser.role)} />}
       title="Team Members"
       subtitle={subtitle}
       maxWidth="48rem"

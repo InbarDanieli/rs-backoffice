@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSessionWithRole, isAdmin, apiForbidden } from "@/lib/admin-authorization";
 import { setDefaultYear, findYearById, deleteYear } from "@/lib/years";
 import { removeYearFromAllUsers } from "@/lib/users";
 
@@ -11,8 +11,9 @@ export async function PATCH(
   _request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const sessionData = await getSessionWithRole();
+  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAdmin(sessionData.role)) return apiForbidden();
 
   const { id } = await params;
   const year = await findYearById(id);
@@ -26,8 +27,9 @@ export async function DELETE(
   _request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const sessionData = await getSessionWithRole();
+  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAdmin(sessionData.role)) return apiForbidden();
 
   const { id } = await params;
   const year = await findYearById(id);
@@ -40,7 +42,6 @@ export async function DELETE(
     );
   }
 
-  // Strip year from all users first, then delete the year document
   await removeYearFromAllUsers(id);
   await deleteYear(id);
 

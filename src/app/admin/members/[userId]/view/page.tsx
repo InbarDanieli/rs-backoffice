@@ -1,5 +1,6 @@
 import { AdminPageLayout } from "@/components/layout/AdminPageLayout";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
+import { assertAdminPageAccess, isAdmin } from "@/lib/admin-authorization";
 import { getSession } from "@/lib/session";
 import { USER_PROFILE_SECTIONS } from "@/lib/user-profile-fields";
 import { findUserById } from "@/lib/users";
@@ -47,14 +48,18 @@ export default async function MemberViewPage({ params }: PageProps) {
   if (!session) redirect("/admin/login");
 
   const { userId } = await params;
-  
-  const [user, years, activeYear] = await Promise.all([
+
+  const [currentUser, user, years, activeYear] = await Promise.all([
+    findUserById(session.userId),
     findUserById(userId),
     listYears(),
     getActiveYear(),
   ]);
-  
+
   const activeYearId = activeYear?.id ?? null;
+
+  if (!currentUser) notFound();
+  assertAdminPageAccess("/admin/members", currentUser.role);
 
   if (!user) notFound();
 
@@ -66,7 +71,7 @@ export default async function MemberViewPage({ params }: PageProps) {
 
   return (
     <AdminPageLayout
-      sidebar={<AdminSidebar navItems={navItems} years={years} activeYearId={activeYearId} />}
+      sidebar={<AdminSidebar navItems={navItems} years={years} activeYearId={activeYearId} canManageYears={isAdmin(currentUser.role)} />}
       backLink={{ href: "/admin/members", label: "Team Members" }}
       actions={
         <Link href={`/admin/members/${userId}/edit`} className={styles.editLink}>

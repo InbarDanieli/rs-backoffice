@@ -13,6 +13,7 @@ interface AdminSidebarProps {
   navItems: NavItem[];
   years: YearOption[];
   activeYearId: string | null;
+  canManageYears?: boolean;
   signOutHref?: string;
 }
 
@@ -20,6 +21,7 @@ export function AdminSidebar({
   navItems,
   years,
   activeYearId,
+  canManageYears = false,
   signOutHref = "/api/auth/logout",
 }: AdminSidebarProps) {
   return (
@@ -29,9 +31,11 @@ export function AdminSidebar({
         <span className={styles.consoleBadge}>Admin Console</span>
       </div>
 
-      <div className={styles.yearSection}>
-        <YearSelector years={years} activeYearId={activeYearId} />
-      </div>
+      {canManageYears && (
+        <div className={styles.yearSection}>
+          <YearSelector years={years} activeYearId={activeYearId} />
+        </div>
+      )}
 
       <nav className={styles.nav} aria-label="Main navigation">
         {navItems.map((item) => (

@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSessionWithRole, isAdmin, apiForbidden } from "@/lib/admin-authorization";
 import { listYears, createYear } from "@/lib/years";
 
 export async function GET(): Promise<NextResponse> {
-  const session = await getSession();
-  if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const sessionData = await getSessionWithRole();
+  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAdmin(sessionData.role)) return apiForbidden();
 
   const years = await listYears();
   return NextResponse.json(years);
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const session = await getSession();
-  if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const sessionData = await getSessionWithRole();
+  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAdmin(sessionData.role)) return apiForbidden();
 
   let body: unknown;
   try {
@@ -34,6 +34,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const year = await createYear({ name, isDefault, userEmail: session.email });
+  const year = await createYear({ name, isDefault, userEmail: sessionData.session.email });
   return NextResponse.json(year, { status: 201 });
 }
