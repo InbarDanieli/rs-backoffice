@@ -119,6 +119,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     picture: userInfo.picture,
     sub: userInfo.sub,
     userId: dbUser.id,
+    role: dbUser.role,
   });
 
   const response = NextResponse.redirect(new URL("/admin/dashboard", appUrl));

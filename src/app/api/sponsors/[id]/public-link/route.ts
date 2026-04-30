@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionWithRole, canManageSponsorsApi, apiForbidden } from "@/lib/admin-authorization";
+import { verifySession } from "@/lib/auth/dal";
 import { findSponsorById, setSponsorPublicToken } from "@/lib/sponsors";
 
 interface RouteParams {
@@ -10,9 +10,7 @@ export async function POST(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const sessionData = await getSessionWithRole();
-  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canManageSponsorsApi(sessionData.role)) return apiForbidden();
+  await verifySession();
 
   const { id } = await params;
   const sponsor = await findSponsorById(id);

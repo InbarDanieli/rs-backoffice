@@ -1,10 +1,10 @@
 import { AdminPageLayout } from "@/components/layout/AdminPageLayout";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
-import { assertAdminPageAccess, isAdmin } from "@/lib/admin-authorization";
-import { getSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/auth/dal";
+import { isAdmin } from "@/lib/auth/permissions";
 import { findUserById } from "@/lib/users";
 import { getActiveYear, listYears } from "@/lib/years";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { MemberEditClient } from "./MemberEditClient";
 
 const ProfileIcon = () => (
@@ -65,21 +65,15 @@ interface PageProps {
 }
 
 export default async function MemberEditPage({ params }: PageProps) {
-  const session = await getSession();
-  if (!session) redirect("/admin/login");
-
   const { userId } = await params;
 
   const [currentUser, user, years, activeYear] = await Promise.all([
-    findUserById(session.userId),
+    getCurrentUser(),
     findUserById(userId),
     listYears(),
     getActiveYear(),
   ]);
   const activeYearId = activeYear?.id ?? null;
-
-  if (!currentUser) notFound();
-  assertAdminPageAccess("/admin/members", currentUser.role);
 
   if (!user) notFound();
 

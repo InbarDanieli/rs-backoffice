@@ -1,17 +1,20 @@
 import "server-only";
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { cookies } from "next/headers";
+import type { UserRole } from "@/lib/users";
 
-export interface SessionPayload {
+export interface SessionPayload extends JWTPayload {
   email: string;
   name: string;
   picture: string;
   sub: string;
   userId: string;
+  role: UserRole;
 }
 
 const COOKIE_NAME = "admin_session";
 const SESSION_DURATION_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
+const JWT_EXPIRATION = "2d";
 
 function getEncodedKey(): Uint8Array {
   const secret = process.env.SESSION_SECRET;
@@ -20,19 +23,21 @@ function getEncodedKey(): Uint8Array {
 }
 
 export async function encrypt(payload: SessionPayload): Promise<string> {
-  return new SignJWT(payload as unknown as Record<string, unknown>)
+  return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("7d")
+    .setExpirationTime(JWT_EXPIRATION)
     .sign(getEncodedKey());
 }
 
 export async function decrypt(token: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, getEncodedKey(), {
+    const { payload } = await jwtVerify<SessionPayload>(token, getEncodedKey(), {
       algorithms: ["HS256"],
     });
-    return payload as unknown as SessionPayload;
+    // Reject pre-migration tokens that lack `role` — force re-login.
+    if (typeof payload.role !== "string") return null;
+    return payload;
   } catch {
     return null;
   }

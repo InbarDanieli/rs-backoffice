@@ -1,12 +1,5 @@
-import { notFound, redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { getSession } from "@/lib/session";
-import {
-  assertAdminPageAccess,
-  isAdmin,
-  shouldShowMembersNav,
-} from "@/lib/admin-authorization";
-import { findUserById } from "@/lib/users";
+import { getCurrentUser } from "@/lib/auth/dal";
+import { canAccessRoute, isAdmin } from "@/lib/auth/permissions";
 import { listYears, getActiveYear } from "@/lib/years";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { AdminPageLayout } from "@/components/layout/AdminPageLayout";
@@ -36,23 +29,17 @@ const BriefcaseIcon = () => (
 );
 
 export default async function SponsorsPage() {
-  const session = await getSession();
-  if (!session) redirect("/admin/login");
-
-  const [currentUser, years, activeYear] = await Promise.all([
-    findUserById(session.userId),
+  const [user, years, activeYear] = await Promise.all([
+    getCurrentUser(),
     listYears(),
     getActiveYear(),
   ]);
-
-  if (!currentUser) notFound();
-  assertAdminPageAccess("/admin/sponsors", currentUser.role);
 
   const activeYearId = activeYear?.id ?? null;
 
   const navItems = [
     { label: "My Profile", href: "/admin/dashboard", icon: <ProfileIcon /> },
-    ...(shouldShowMembersNav(currentUser.role)
+    ...(canAccessRoute("/admin/members", user.role)
       ? [{ label: "Team Members", href: "/admin/members", icon: <UsersIcon /> } as const]
       : []),
     { label: "Sponsors", href: "/admin/sponsors", icon: <BriefcaseIcon />, active: true },
@@ -64,7 +51,7 @@ export default async function SponsorsPage() {
 
   return (
     <AdminPageLayout
-      sidebar={<AdminSidebar navItems={navItems} years={years} activeYearId={activeYearId} canManageYears={isAdmin(currentUser.role)} />}
+      sidebar={<AdminSidebar navItems={navItems} years={years} activeYearId={activeYearId} canManageYears={isAdmin(user.role)} />}
       title="Sponsors"
       subtitle={subtitle}
       maxWidth="52rem"

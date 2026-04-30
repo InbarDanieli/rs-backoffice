@@ -1,16 +1,9 @@
 import { AdminPageLayout } from "@/components/layout/AdminPageLayout";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { ProfileSection } from "@/components/ui/ProfileSection";
-import {
-  assertAdminPageAccess,
-  isAdmin,
-  shouldShowMembersNav,
-  shouldShowSponsorsNav,
-} from "@/lib/admin-authorization";
-import { getSession } from "@/lib/session";
-import { findUserById } from "@/lib/users";
+import { getCurrentUser } from "@/lib/auth/dal";
+import { canAccessRoute, isAdmin } from "@/lib/auth/permissions";
 import { getActiveYear, listYears } from "@/lib/years";
-import { notFound, redirect } from "next/navigation";
 
 const ProfileIcon = () => (
   <svg
@@ -66,17 +59,11 @@ const BriefcaseIcon = () => (
 );
 
 export default async function AdminDashboardPage() {
-  const session = await getSession();
-  if (!session) redirect("/admin/login");
-
-  const [dbUser, years, activeYear] = await Promise.all([
-    findUserById(session.userId),
+  const [user, years, activeYear] = await Promise.all([
+    getCurrentUser(),
     listYears(),
     getActiveYear(),
   ]);
-
-  if (!dbUser) notFound();
-  assertAdminPageAccess("/admin/dashboard", dbUser.role);
 
   const activeYearId = activeYear?.id ?? null;
 
@@ -87,10 +74,10 @@ export default async function AdminDashboardPage() {
       icon: <ProfileIcon />,
       active: true,
     },
-    ...(shouldShowMembersNav(dbUser.role)
+    ...(canAccessRoute("/admin/members", user.role)
       ? [{ label: "Team Members", href: "/admin/members", icon: <UsersIcon /> } as const]
       : []),
-    ...(shouldShowSponsorsNav(dbUser.role)
+    ...(canAccessRoute("/admin/sponsors", user.role)
       ? [{ label: "Sponsors", href: "/admin/sponsors", icon: <BriefcaseIcon /> } as const]
       : []),
   ];
@@ -102,32 +89,32 @@ export default async function AdminDashboardPage() {
           navItems={navItems}
           years={years}
           activeYearId={activeYearId}
-          canManageYears={isAdmin(dbUser.role)}
+          canManageYears={isAdmin(user.role)}
         />
       }
       title="My Info"
       subtitle="Update your professional credentials and personal biography to maintain accurate records across the administrative ledger."
     >
       <ProfileSection
-        userId={session.userId}
-        name={dbUser?.name ?? session.name}
-        email={session.email}
-        picture={dbUser?.picture ?? session.picture}
-        role={dbUser?.role}
+        userId={user.id}
+        name={user.name}
+        email={user.email}
+        picture={user.picture}
+        role={user.role}
         defaultValues={{
-          name: dbUser?.name ?? session.name,
-          company: dbUser?.company ?? "",
-          title: dbUser?.title ?? "",
-          bio: dbUser?.bio ?? "",
-          linkedin: dbUser?.linkedin ?? "",
-          x: dbUser?.x ?? "",
-          bluesky: dbUser?.bluesky ?? "",
-          facebook: dbUser?.facebook ?? "",
-          instagram: dbUser?.instagram ?? "",
-          youtube: dbUser?.youtube ?? "",
-          github: dbUser?.github ?? "",
-          medium: dbUser?.medium ?? "",
-          website: dbUser?.website ?? "",
+          name: user.name,
+          company: user.company,
+          title: user.title,
+          bio: user.bio,
+          linkedin: user.linkedin,
+          x: user.x,
+          bluesky: user.bluesky,
+          facebook: user.facebook,
+          instagram: user.instagram,
+          youtube: user.youtube,
+          github: user.github,
+          medium: user.medium,
+          website: user.website,
         }}
       />
     </AdminPageLayout>

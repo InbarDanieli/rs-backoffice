@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionWithRole, isAdmin, apiForbidden } from "@/lib/admin-authorization";
+import { verifySession } from "@/lib/auth/dal";
 import { findYearById, addMemberToYear, removeMemberFromYear } from "@/lib/years";
 import { addYearToUser, removeYearFromUser, findUsersByEmails } from "@/lib/users";
 
@@ -19,10 +19,6 @@ export async function GET(
   _request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const sessionData = await getSessionWithRole();
-  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(sessionData.role)) return apiForbidden();
-
   const { id } = await params;
   const year = await findYearById(id);
   if (!year) return NextResponse.json({ error: "Year not found" }, { status: 404 });
@@ -48,9 +44,7 @@ export async function POST(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const sessionData = await getSessionWithRole();
-  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(sessionData.role)) return apiForbidden();
+  await verifySession();
 
   const { id } = await params;
   const year = await findYearById(id);
@@ -90,9 +84,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const sessionData = await getSessionWithRole();
-  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(sessionData.role)) return apiForbidden();
+  await verifySession();
 
   const { id } = await params;
   const year = await findYearById(id);

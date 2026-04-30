@@ -1,7 +1,5 @@
-import { notFound, redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
-import { assertAdminPageAccess, isAdmin } from "@/lib/admin-authorization";
-import { findUserById } from "@/lib/users";
+import { getCurrentUser } from "@/lib/auth/dal";
+import { isAdmin } from "@/lib/auth/permissions";
 import { listYears, getActiveYear } from "@/lib/years";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { AdminPageLayout } from "@/components/layout/AdminPageLayout";
@@ -32,17 +30,11 @@ const BriefcaseIcon = () => (
 );
 
 export default async function MembersPage() {
-  const session = await getSession();
-  if (!session) redirect("/admin/login");
-
-  const [currentUser, years, activeYear] = await Promise.all([
-    findUserById(session.userId),
+  const [user, years, activeYear] = await Promise.all([
+    getCurrentUser(),
     listYears(),
     getActiveYear(),
   ]);
-
-  if (!currentUser) notFound();
-  assertAdminPageAccess("/admin/members", currentUser.role);
 
   const activeYearId = activeYear?.id ?? null;
 
@@ -58,13 +50,13 @@ export default async function MembersPage() {
 
   return (
     <AdminPageLayout
-      sidebar={<AdminSidebar navItems={navItems} years={years} activeYearId={activeYearId} canManageYears={isAdmin(currentUser.role)} />}
+      sidebar={<AdminSidebar navItems={navItems} years={years} activeYearId={activeYearId} canManageYears={isAdmin(user.role)} />}
       title="Team Members"
       subtitle={subtitle}
       maxWidth="48rem"
     >
       {activeYear ? (
-        <MembersClient yearId={activeYear.id} currentUserId={session.userId} />
+        <MembersClient yearId={activeYear.id} currentUserId={user.id} />
       ) : (
         <div className={styles.emptyState} />
       )}

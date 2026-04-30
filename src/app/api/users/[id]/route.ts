@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionWithRole, isAdmin, apiForbidden } from "@/lib/admin-authorization";
+import { verifySession } from "@/lib/auth/dal";
 import { findUserById, updateUserById, type UpdatableUserFields, type UserRole } from "@/lib/users";
 
 interface RouteParams {
@@ -12,15 +12,7 @@ export async function GET(
   _request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const sessionData = await getSessionWithRole();
-  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
-
-  if (!isAdmin(sessionData.role) && sessionData.session.userId !== id) {
-    return apiForbidden();
-  }
-
   const user = await findUserById(id);
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
@@ -31,14 +23,11 @@ export async function PATCH(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const sessionData = await getSessionWithRole();
-  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Re-verify with fresh DB role: a JWT-cached admin who was demoted cannot
+  // sneak a role update through the proxy's optimistic check.
+  const { user: actor } = await verifySession();
 
   const { id } = await params;
-
-  if (!isAdmin(sessionData.role) && sessionData.session.userId !== id) {
-    return apiForbidden();
-  }
 
   let body: unknown;
   try {
@@ -69,7 +58,7 @@ export async function PATCH(
     medium: typeof raw.medium === "string" ? raw.medium.trim() : undefined,
     website: typeof raw.website === "string" ? raw.website.trim() : undefined,
     role:
-      isAdmin(sessionData.role) &&
+      actor.role === "admin" &&
       typeof raw.role === "string" &&
       VALID_ROLES.includes(raw.role as UserRole)
         ? (raw.role as UserRole)

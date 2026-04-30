@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionWithRole, canManageSponsorsApi, apiForbidden } from "@/lib/admin-authorization";
+import { verifySession } from "@/lib/auth/dal";
 import { findSponsorById, updateSponsor, deleteSponsor, type UpdatableSponsorFields } from "@/lib/sponsors";
 
 interface RouteParams {
@@ -10,10 +10,6 @@ export async function GET(
   _request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const sessionData = await getSessionWithRole();
-  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canManageSponsorsApi(sessionData.role)) return apiForbidden();
-
   const { id } = await params;
   const sponsor = await findSponsorById(id);
   if (!sponsor) return NextResponse.json({ error: "Sponsor not found" }, { status: 404 });
@@ -25,9 +21,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const sessionData = await getSessionWithRole();
-  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canManageSponsorsApi(sessionData.role)) return apiForbidden();
+  await verifySession();
 
   const { id } = await params;
   const sponsor = await findSponsorById(id);
@@ -44,9 +38,7 @@ export async function DELETE(
   _request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  const sessionData = await getSessionWithRole();
-  if (!sessionData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canManageSponsorsApi(sessionData.role)) return apiForbidden();
+  await verifySession();
 
   const { id } = await params;
   const sponsor = await findSponsorById(id);
