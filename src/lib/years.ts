@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import type { Collection, WithId } from "mongodb";
 import clientPromise from "./db";
+import { getMemberCollection } from "./users";
 
 export interface Year {
   id: string;
@@ -64,6 +65,8 @@ export async function createYear(data: {
   userEmail: string;
 }): Promise<Year> {
   const col = await getCollection();
+  const defaultEmail = "rantav@gmail.com";
+  const memberEmails = [defaultEmail, data.userEmail];
 
   if (data.isDefault) {
     await col.updateMany({}, { $set: { isDefault: false } });
@@ -74,13 +77,27 @@ export async function createYear(data: {
     id: crypto.randomUUID(),
     name: data.name.trim(),
     isDefault: data.isDefault,
-    memberEmails: ["rantav@gmail.com", data.userEmail],
+    memberEmails,
     createdAt: now,
     updatedAt: now,
   };
 
   await col.insertOne(year);
+  await createYearForMembers(year.id, memberEmails);
+
   return year;
+}
+
+async function createYearForMembers(
+  yearId: string,
+  emails: string[],
+): Promise<void> {
+  const userCol = await getMemberCollection();
+
+  await userCol.updateMany(
+    { email: { $in: emails } },
+    { $addToSet: { years: yearId } },
+  );
 }
 
 export async function setDefaultYear(id: string): Promise<void> {
@@ -109,6 +126,12 @@ export async function addMemberToYear(
 export async function deleteYear(id: string): Promise<void> {
   const col = await getCollection();
   await col.deleteOne({ id });
+  await deleteYearForMembers(id);
+}
+
+export async function deleteYearForMembers(yearId: string): Promise<void> {
+  const userCol = await getMemberCollection();
+  await userCol.updateMany({ years: yearId }, { $pull: { years: yearId } });
 }
 
 export async function removeMemberFromYear(

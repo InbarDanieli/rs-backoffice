@@ -46,7 +46,7 @@ export type UpdatableUserFields = Pick<
   | "website"
 >;
 
-async function getCollection(): Promise<Collection<User>> {
+export async function getMemberCollection(): Promise<Collection<User>> {
   const client = await clientPromise;
   return client.db().collection<User>("users");
 }
@@ -58,19 +58,19 @@ function toUser(doc: WithId<User>): User {
 }
 
 export async function findUserByEmail(email: string): Promise<User | null> {
-  const col = await getCollection();
+  const col = await getMemberCollection();
   const doc = await col.findOne({ email });
   return doc ? toUser(doc) : null;
 }
 
 export async function findUserById(id: string): Promise<User | null> {
-  const col = await getCollection();
+  const col = await getMemberCollection();
   const doc = await col.findOne({ id });
   return doc ? toUser(doc) : null;
 }
 
 export async function findUsersByYear(yearId: string): Promise<User[]> {
-  const col = await getCollection();
+  const col = await getMemberCollection();
   const docs = await col
     .find({ years: yearId })
     .project<WithId<User>>({ _id: 0 })
@@ -84,7 +84,7 @@ export async function upsertUser(data: {
   picture: string;
   yearId?: string;
 }): Promise<User> {
-  const col = await getCollection();
+  const col = await getMemberCollection();
   const existing = await col.findOne({ email: data.email });
 
   if (existing) {
@@ -140,7 +140,7 @@ export async function addYearToUser(
   email: string,
   yearId: string,
 ): Promise<void> {
-  const col = await getCollection();
+  const col = await getMemberCollection();
   await col.updateOne(
     { email: email.toLowerCase() },
     { $addToSet: { years: yearId }, $set: { updatedAt: new Date() } },
@@ -152,7 +152,7 @@ export async function removeYearFromUser(
   email: string,
   yearId: string,
 ): Promise<void> {
-  const col = await getCollection();
+  const col = await getMemberCollection();
   await col.updateOne(
     { email: email.toLowerCase() },
     { $pull: { years: yearId }, $set: { updatedAt: new Date() } },
@@ -161,7 +161,7 @@ export async function removeYearFromUser(
 
 /** Remove a year ID from ALL users when the year is deleted. Users themselves are kept. */
 export async function removeYearFromAllUsers(yearId: string): Promise<void> {
-  const col = await getCollection();
+  const col = await getMemberCollection();
   await col.updateMany(
     { years: yearId },
     { $pull: { years: yearId }, $set: { updatedAt: new Date() } },
@@ -171,7 +171,7 @@ export async function removeYearFromAllUsers(yearId: string): Promise<void> {
 /** Find multiple users by their email addresses (for member list enrichment). */
 export async function findUsersByEmails(emails: string[]): Promise<User[]> {
   if (emails.length === 0) return [];
-  const col = await getCollection();
+  const col = await getMemberCollection();
   const docs = await col
     .find({ email: { $in: emails.map((e) => e.toLowerCase()) } })
     .toArray();
@@ -183,7 +183,7 @@ export async function findUsersByEmails(emails: string[]): Promise<User[]> {
  * Used when an admin wants to pre-populate a profile before the member signs in.
  */
 export async function findOrCreateByEmail(email: string): Promise<User> {
-  const col = await getCollection();
+  const col = await getMemberCollection();
   const existing = await col.findOne({ email: email.toLowerCase() });
   if (existing) return toUser(existing);
 
@@ -219,6 +219,6 @@ export async function updateUserById(
   id: string,
   fields: Partial<UpdatableUserFields>,
 ): Promise<void> {
-  const col = await getCollection();
+  const col = await getMemberCollection();
   await col.updateOne({ id }, { $set: { ...fields, updatedAt: new Date() } });
 }
