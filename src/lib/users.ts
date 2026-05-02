@@ -1,6 +1,12 @@
 import "server-only";
 import type { Collection, WithId } from "mongodb";
 import clientPromise from "./db";
+import {
+  uploadImage,
+  deleteImage,
+  isDataUrl,
+  isOwnedRawUrl,
+} from "./github/images";
 
 export type UserRole = "team-member" | "admin" | "sponsor-manager";
 
@@ -88,7 +94,10 @@ export async function upsertUser(data: {
   const existing = await col.findOne({ email: data.email });
 
   if (existing) {
-    const hasCustomPicture = existing.picture?.startsWith("data:");
+    const hasCustomPicture =
+      !!existing.picture &&
+      existing.picture !== "" &&
+      !existing.picture.includes("googleusercontent.com");
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     if (!hasCustomPicture) updates.picture = data.picture;
 
@@ -219,6 +228,41 @@ export async function updateUserById(
   id: string,
   fields: Partial<UpdatableUserFields>,
 ): Promise<void> {
+  const existing = await findUserById(id);
+  if (!existing) return;
+
+  const next: Partial<UpdatableUserFields> = { ...fields };
+  const toDelete: string[] = [];
+
+  if (fields.picture !== undefined) {
+    if (isDataUrl(fields.picture)) {
+      next.picture = await uploadImage({
+        entity: "users",
+        entityId: id,
+        kind: "avatar",
+        dataUrl: fields.picture,
+      });
+      if (existing.picture && isOwnedRawUrl(existing.picture)) {
+        toDelete.push(existing.picture);
+      }
+    } else if (
+      existing.picture &&
+      isOwnedRawUrl(existing.picture) &&
+      existing.picture !== fields.picture
+    ) {
+      toDelete.push(existing.picture);
+    }
+  }
+
   const col = await getMemberCollection();
-  await col.updateOne({ id }, { $set: { ...fields, updatedAt: new Date() } });
+  await col.updateOne({ id }, { $set: { ...next, updatedAt: new Date() } });
+
+  if (toDelete.length > 0) {
+    const results = await Promise.allSettled(toDelete.map(deleteImage));
+    for (const r of results) {
+      if (r.status === "rejected") {
+        console.error("Failed to delete orphaned GitHub image:", r.reason);
+      }
+    }
+  }
 }

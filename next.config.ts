@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
       },
+      {
+        protocol: "https",
+        hostname: "raw.githubusercontent.com",
+        pathname: `/${process.env.GITHUB_OWNER ?? "*"}/${process.env.GITHUB_REPO ?? "rs-backoffice"}/${process.env.GITHUB_ASSETS_BRANCH ?? "assets"}/**`,
+      },
     ],
   },
 };

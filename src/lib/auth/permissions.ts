@@ -129,6 +129,15 @@ export const ROUTE_PERMISSIONS: Record<string, RouteConfig> = {
       },
     },
   },
+  "/api/images/sponsors/[id]": {
+    roles: ["admin", "sponsor-manager"],
+    redirectToLogin: false,
+  },
+  "/api/images/users/[id]": {
+    roles: "any-authenticated",
+    redirectToLogin: false,
+    check: canReadUser,
+  },
   // ---- Explicitly public APIs ----
   "/api/auth/google": { roles: "public" },
   "/api/auth/callback/google": { roles: "public" },

@@ -1,6 +1,12 @@
 import "server-only";
 import type { Collection, WithId } from "mongodb";
 import clientPromise from "./db";
+import {
+  uploadImage,
+  deleteImage,
+  isDataUrl,
+  isOwnedRawUrl,
+} from "./github/images";
 
 export interface SponsorPosition {
   name: string;
@@ -123,11 +129,109 @@ export async function updateSponsor(
   id: string,
   fields: Partial<UpdatableSponsorFields>,
 ): Promise<void> {
+  const existing = await findSponsorById(id);
+  if (!existing) return;
+
+  const next: Partial<UpdatableSponsorFields> = { ...fields };
+  const toDelete: string[] = [];
+
+  if (fields.logo !== undefined) {
+    if (isDataUrl(fields.logo)) {
+      next.logo = await uploadImage({
+        entity: "sponsors",
+        entityId: id,
+        kind: "logo",
+        dataUrl: fields.logo,
+      });
+      if (existing.logo && isOwnedRawUrl(existing.logo)) {
+        toDelete.push(existing.logo);
+      }
+    } else if (
+      existing.logo &&
+      isOwnedRawUrl(existing.logo) &&
+      existing.logo !== fields.logo
+    ) {
+      toDelete.push(existing.logo);
+    }
+  }
+
+  if (fields.carouselImages !== undefined) {
+    const newImages = await Promise.all(
+      fields.carouselImages.map((value, i) =>
+        isDataUrl(value)
+          ? uploadImage({
+              entity: "sponsors",
+              entityId: id,
+              kind: "carousel",
+              index: i,
+              dataUrl: value,
+            })
+          : Promise.resolve(value),
+      ),
+    );
+    next.carouselImages = newImages;
+
+    const newOwned = new Set(newImages.filter(isOwnedRawUrl));
+    for (const old of existing.carouselImages) {
+      if (isOwnedRawUrl(old) && !newOwned.has(old)) toDelete.push(old);
+    }
+  }
+
+  if (fields.testimonials !== undefined) {
+    const newTestimonials = await Promise.all(
+      fields.testimonials.map(async (t, i) => {
+        if (t.image && isDataUrl(t.image)) {
+          const url = await uploadImage({
+            entity: "sponsors",
+            entityId: id,
+            kind: "testimonial",
+            index: i,
+            dataUrl: t.image,
+          });
+          return { ...t, image: url };
+        }
+        return t;
+      }),
+    );
+    next.testimonials = newTestimonials;
+
+    const newOwned = new Set(
+      newTestimonials.map((t) => t.image).filter(isOwnedRawUrl),
+    );
+    for (const old of existing.testimonials) {
+      if (old.image && isOwnedRawUrl(old.image) && !newOwned.has(old.image)) {
+        toDelete.push(old.image);
+      }
+    }
+  }
+
   const col = await getCollection();
-  await col.updateOne({ id }, { $set: { ...fields, updatedAt: new Date() } });
+  await col.updateOne({ id }, { $set: { ...next, updatedAt: new Date() } });
+
+  if (toDelete.length > 0) {
+    const results = await Promise.allSettled(toDelete.map(deleteImage));
+    for (const r of results) {
+      if (r.status === "rejected") {
+        console.error("Failed to delete orphaned GitHub image:", r.reason);
+      }
+    }
+  }
 }
 
 export async function deleteSponsor(id: string): Promise<void> {
+  const existing = await findSponsorById(id);
+  if (!existing) return;
+
+  const urls = [
+    existing.logo,
+    ...existing.carouselImages,
+    ...existing.testimonials.map((t) => t.image),
+  ].filter((u): u is string => !!u && isOwnedRawUrl(u));
+
+  for (const url of urls) {
+    await deleteImage(url);
+  }
+
   const col = await getCollection();
   await col.deleteOne({ id });
 }
