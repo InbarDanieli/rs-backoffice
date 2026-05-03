@@ -15,6 +15,7 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import styles from "./edit.module.css";
 import { Popup } from "@/components/ui/Popup";
+import { useUnsavedChangesWarning } from "@/lib/hooks/useUnsavedChangesWarning";
 
 interface SponsorEditClientProps {
   sponsor: Sponsor;
@@ -111,11 +112,14 @@ export function SponsorEditClient({
     ...sponsor,
   });
 
+  const [isDirty, setIsDirty] = useState(false);
+
   const updateField = <K extends keyof Sponsor>(
     field: K,
     value: Sponsor[K],
   ) => {
     setActiveDefaultValues((prev) => ({ ...prev, [field]: value }));
+    setIsDirty(true);
   };
   const carouselImages = activeDefaultValues.carouselImages ?? [];
   const testimonials = activeDefaultValues.testimonials ?? [];
@@ -125,6 +129,8 @@ export function SponsorEditClient({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+
+  useUnsavedChangesWarning(isDirty || saving);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const carouselInputRef = useRef<HTMLInputElement>(null);
@@ -255,6 +261,7 @@ export function SponsorEditClient({
         setSaved(false)
       }, 5000);
       setSaved(true);
+      setIsDirty(false);
     } catch (err) {
       setError(
         err instanceof Error
@@ -268,6 +275,7 @@ export function SponsorEditClient({
 
   function handleDiscard() {
     setActiveDefaultValues({ ...sponsor });
+    setIsDirty(false);
     setIsOpen(false);
   }
 

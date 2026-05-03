@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ProfileCard } from "./ProfileCard";
 import { InfoForm, type InfoFormValues } from "./InfoForm";
+import { useUnsavedChangesWarning } from "@/lib/hooks/useUnsavedChangesWarning";
 import styles from "./ProfileSection.module.css";
 import { UserRole } from "@/lib/users";
 
@@ -24,6 +25,9 @@ export function ProfileSection({
   defaultValues,
 }: ProfileSectionProps) {
   const [picture, setPicture] = useState(initialPicture);
+  const [savedPicture, setSavedPicture] = useState(initialPicture);
+
+  useUnsavedChangesWarning(picture !== savedPicture);
 
   return (
     <div className={styles.grid}>
@@ -43,6 +47,7 @@ export function ProfileSection({
           defaultRole={role}
           defaultValues={defaultValues}
           picture={picture}
+          onSaved={() => setSavedPicture(picture)}
         />
       </div>
     </div>

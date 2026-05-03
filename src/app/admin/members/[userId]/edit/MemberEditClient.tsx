@@ -5,6 +5,7 @@ import { ProfileCard } from "@/components/ui/ProfileCard";
 import { InfoForm } from "@/components/ui/InfoForm";
 import type { InfoFormValues } from "@/components/ui/InfoForm";
 import type { UserRole } from "@/lib/users";
+import { useUnsavedChangesWarning } from "@/lib/hooks/useUnsavedChangesWarning";
 import styles from "./edit.module.css";
 
 interface MemberEditClientProps {
@@ -25,6 +26,9 @@ export function MemberEditClient({
   defaultValues,
 }: MemberEditClientProps) {
   const [picture, setPicture] = useState(initialPicture);
+  const [savedPicture, setSavedPicture] = useState(initialPicture);
+
+  useUnsavedChangesWarning(picture !== savedPicture);
 
   return (
     <div className={styles.grid}>
@@ -46,6 +50,7 @@ export function MemberEditClient({
           requireImage={false}
           defaultRole={role}
           submitLabel="Save Changes"
+          onSaved={() => setSavedPicture(picture)}
         />
       </div>
     </div>

@@ -8,6 +8,7 @@ import {
   DEFAULT_REQUIRED_FIELDS,
 } from "@/lib/user-profile-fields";
 import { type UserRole } from "@/lib/users";
+import { useUnsavedChangesWarning } from "@/lib/hooks/useUnsavedChangesWarning";
 import styles from "./InfoForm.module.css";
 
 export interface InfoFormValues {
@@ -39,6 +40,8 @@ interface InfoFormProps {
   defaultRole?: UserRole;
   submitLabel?: string;
   discardLabel?: string;
+  /** Called after a successful save, so the parent can clear its own dirty state (e.g. picture baseline). */
+  onSaved?: () => void;
 }
 
 type SaveStatus = "idle" | "saving" | "success" | "error";
@@ -59,12 +62,16 @@ export function InfoForm({
   defaultRole = "team-member",
   submitLabel = "Update Info",
   discardLabel = "Discard",
+  onSaved,
 }: InfoFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [selectedRole, setSelectedRole] = useState<UserRole>(defaultRole);
   const [activeDefaultValues, setActiveDefaultValues] =
     useState<InfoFormValues>(defaultValues);
+  const [isDirty, setIsDirty] = useState(false);
+
+  useUnsavedChangesWarning(isDirty || saveStatus === "saving");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -109,7 +116,13 @@ export function InfoForm({
 
       setActiveDefaultValues({ ...defaultValues, ...body });
 
-      setSaveStatus(res.ok ? "success" : "error");
+      if (res.ok) {
+        setSaveStatus("success");
+        setIsDirty(false);
+        onSaved?.();
+      } else {
+        setSaveStatus("error");
+      }
     } catch {
       setSaveStatus("error");
     }
@@ -119,12 +132,20 @@ export function InfoForm({
     setErrors({});
     setSaveStatus("idle");
     setSelectedRole(defaultRole);
+    setIsDirty(false);
   }
 
   const errorMessages = Object.values(errors).filter(Boolean);
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit} onReset={handleReset}>
+    <form
+      className={styles.form}
+      onSubmit={handleSubmit}
+      onReset={handleReset}
+      onInput={() => {
+        if (!isDirty) setIsDirty(true);
+      }}
+    >
       {/* ── Role selector (admin-only) ── */}
       {showRoleSelector && (
         <div className={styles.roleSection}>
@@ -140,7 +161,10 @@ export function InfoForm({
                   name="role"
                   value={opt.value}
                   checked={selectedRole === opt.value}
-                  onChange={() => setSelectedRole(opt.value)}
+                  onChange={() => {
+                    setSelectedRole(opt.value);
+                    if (!isDirty) setIsDirty(true);
+                  }}
                   className={styles.roleRadio}
                 />
                 {opt.label}
