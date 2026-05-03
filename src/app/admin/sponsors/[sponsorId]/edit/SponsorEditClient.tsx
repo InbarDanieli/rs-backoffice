@@ -634,7 +634,7 @@ export function SponsorEditClient({
           type="button"
           className={styles.saveBtn}
           onClick={handleSave}
-          disabled={saving || saved}
+          disabled={saving || saved || !isDirty}
         >
           {saving ? "Saving…" : saved ? "Saved!" : "Save"}
         </button>
