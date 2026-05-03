@@ -156,19 +156,21 @@ export async function updateSponsor(
   }
 
   if (fields.carouselImages !== undefined) {
-    const newImages = await Promise.all(
-      fields.carouselImages.map((value, i) =>
+    const newImages: string[] = [];
+    for (let i = 0; i < fields.carouselImages.length; i++) {
+      const value = fields.carouselImages[i];
+      newImages.push(
         isDataUrl(value)
-          ? uploadImage({
+          ? await uploadImage({
               entity: "sponsors",
               entityId: id,
               kind: "carousel",
               index: i,
               dataUrl: value,
             })
-          : Promise.resolve(value),
-      ),
-    );
+          : value,
+      );
+    }
     next.carouselImages = newImages;
 
     const newOwned = new Set(newImages.filter(isOwnedRawUrl));
@@ -178,21 +180,22 @@ export async function updateSponsor(
   }
 
   if (fields.testimonials !== undefined) {
-    const newTestimonials = await Promise.all(
-      fields.testimonials.map(async (t, i) => {
-        if (t.image && isDataUrl(t.image)) {
-          const url = await uploadImage({
-            entity: "sponsors",
-            entityId: id,
-            kind: "testimonial",
-            index: i,
-            dataUrl: t.image,
-          });
-          return { ...t, image: url };
-        }
-        return t;
-      }),
-    );
+    const newTestimonials = [];
+    for (let i = 0; i < fields.testimonials.length; i++) {
+      const t = fields.testimonials[i];
+      if (t.image && isDataUrl(t.image)) {
+        const url = await uploadImage({
+          entity: "sponsors",
+          entityId: id,
+          kind: "testimonial",
+          index: i,
+          dataUrl: t.image,
+        });
+        newTestimonials.push({ ...t, image: url });
+      } else {
+        newTestimonials.push(t);
+      }
+    }
     next.testimonials = newTestimonials;
 
     const newOwned = new Set(

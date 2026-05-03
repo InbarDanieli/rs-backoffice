@@ -35,40 +35,45 @@ async function migrateSponsors(): Promise<void> {
       Array.isArray(doc.carouselImages) &&
       doc.carouselImages.some(isDataUrl)
     ) {
-      updates.carouselImages = await Promise.all(
-        doc.carouselImages.map((value, i) =>
+      const newImages: string[] = [];
+      for (let i = 0; i < doc.carouselImages.length; i++) {
+        const value = doc.carouselImages[i];
+        newImages.push(
           isDataUrl(value)
-            ? uploadImage({
+            ? await uploadImage({
                 entity: "sponsors",
                 entityId: doc.id,
                 kind: "carousel",
                 index: i,
                 dataUrl: value,
               })
-            : Promise.resolve(value),
-        ),
-      );
+            : value,
+        );
+      }
+      updates.carouselImages = newImages;
     }
 
     if (
       Array.isArray(doc.testimonials) &&
       doc.testimonials.some((t: SponsorTestimonial) => t.image && isDataUrl(t.image))
     ) {
-      updates.testimonials = await Promise.all(
-        doc.testimonials.map(async (t: SponsorTestimonial, i: number) => {
-          if (t.image && isDataUrl(t.image)) {
-            const url = await uploadImage({
-              entity: "sponsors",
-              entityId: doc.id,
-              kind: "testimonial",
-              index: i,
-              dataUrl: t.image,
-            });
-            return { ...t, image: url };
-          }
-          return t;
-        }),
-      );
+      const newTestimonials: SponsorTestimonial[] = [];
+      for (let i = 0; i < doc.testimonials.length; i++) {
+        const t = doc.testimonials[i];
+        if (t.image && isDataUrl(t.image)) {
+          const url = await uploadImage({
+            entity: "sponsors",
+            entityId: doc.id,
+            kind: "testimonial",
+            index: i,
+            dataUrl: t.image,
+          });
+          newTestimonials.push({ ...t, image: url });
+        } else {
+          newTestimonials.push(t);
+        }
+      }
+      updates.testimonials = newTestimonials;
     }
 
     if (Object.keys(updates).length > 0) {

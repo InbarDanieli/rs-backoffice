@@ -126,8 +126,11 @@ async function retryOnTransient<T>(
       if (err instanceof GitHubAuthError) throw err;
       if (err instanceof GitHubRateLimitError) throw err;
 
+      // 409 from contents API: branch tip advanced between request and fast-forward
+      // (concurrent commits to the same branch). Retry picks up the new tip.
       const isTransient =
-        (err instanceof GitHubApiError && err.status >= 500) ||
+        (err instanceof GitHubApiError &&
+          (err.status >= 500 || err.status === 409)) ||
         err instanceof TypeError;
 
       if (!isTransient || attempt === attempts) throw err;
@@ -192,15 +195,17 @@ export async function uploadImage(args: UploadArgs): Promise<string> {
   const path = `${args.entity}/${args.entityId}/${filename}`;
   const content = stripDataUrlPrefix(args.dataUrl);
 
-  await apiFetch(`/repos/${owner}/${repo}/contents/${encodePath(path)}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      message: `chore(assets): upload ${path}`,
-      content,
-      branch,
+  await retryOnTransient(() =>
+    apiFetch(`/repos/${owner}/${repo}/contents/${encodePath(path)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: `chore(assets): upload ${path}`,
+        content,
+        branch,
+      }),
     }),
-  });
+  );
 
   return `${RAW_BASE}/${path}`;
 }
