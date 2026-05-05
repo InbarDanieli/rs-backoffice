@@ -1,6 +1,6 @@
 "use client";
 
-import type { MemberEntry } from "@/app/api/years/[id]/members/route";
+import type { BulkAddMembersResponse, MemberEntry } from "@/app/api/years/[id]/members/route";
 import { Select } from "@/components/ui/Select";
 import Image from "next/image";
 import Link from "next/link";
@@ -28,6 +28,23 @@ const ROLE_OPTIONS = [
   { value: "sponsor-manager", label: "Sponsor Manager" },
 ];
 
+const MAX_BULK_ADD = 50;
+
+/** Split pasted text into candidate strings (one per line, comma, or semicolon). */
+function parseEmailsFromInput(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const segment of text.split(/[\n,;]+/)) {
+    const part = segment.trim();
+    if (!part) continue;
+    const lower = part.toLowerCase();
+    if (seen.has(lower)) continue;
+    seen.add(lower);
+    out.push(part);
+  }
+  return out;
+}
+
 export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
   const [members, setMembers] = useState<MemberEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +55,7 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
   const [savingRoleForId, setSavingRoleForId] = useState<string | null>(null);
   const [creatingProfileForEmail, setCreatingProfileForEmail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [addNotice, setAddNotice] = useState<string | null>(null);
   const router = useRouter();
 
   async function handleRoleChange(userId: string, newRole: string) {
@@ -63,6 +81,7 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
     setLoading(true);
     setMembers([]);
     setError(null);
+    setAddNotice(null);
 
     fetch(`/api/years/${yearId}/members`)
       .then((res) => res.json())
@@ -83,30 +102,54 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    const trimmed = newEmail.trim().toLowerCase();
-    if (!trimmed) return;
+    const parsed = parseEmailsFromInput(newEmail);
+    if (parsed.length === 0) return;
+    if (parsed.length > MAX_BULK_ADD) {
+      setError(`Add at most ${MAX_BULK_ADD} emails at a time.`);
+      return;
+    }
 
     setAdding(true);
     setError(null);
+    setAddNotice(null);
 
     try {
       const res = await fetch(`/api/years/${yearId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: trimmed }),
+        body: JSON.stringify({ emails: parsed }),
       });
 
       if (res.ok) {
-        const entry = (await res.json()) as MemberEntry;
-        if (!members.some((m) => m.email === trimmed)) {
-          setMembers((prev) =>
-            sortMembers([...prev, entry], currentUserId),
-          );
+        const data = (await res.json()) as MemberEntry | BulkAddMembersResponse;
+        const newEntries: MemberEntry[] =
+          "members" in data && Array.isArray(data.members)
+            ? data.members
+            : [data as MemberEntry];
+
+        let invalidNote = "";
+        if ("invalidInputs" in data && data.invalidInputs?.length) {
+          invalidNote = ` Could not parse: ${data.invalidInputs.slice(0, 5).join(", ")}${
+            data.invalidInputs.length > 5 ? "…" : ""
+          }.`;
         }
+
+        setMembers((prev) => {
+          const next = [...prev];
+          for (const entry of newEntries) {
+            if (!next.some((m) => m.email === entry.email)) {
+              next.push(entry);
+            }
+          }
+          return sortMembers(next, currentUserId);
+        });
         setNewEmail("");
+        if (invalidNote) {
+          setAddNotice(invalidNote.trim());
+        }
       } else {
         const data = (await res.json()) as { error?: string };
-        setError(data.error ?? "Failed to add member.");
+        setError(data.error ?? "Failed to add members.");
       }
     } catch {
       setError("Network error. Please try again.");
@@ -165,9 +208,16 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
     }
   }
 
-  const isDuplicate =
-    !!newEmail.trim() &&
-    members.some((m) => m.email === newEmail.trim().toLowerCase());
+  const parsedForAdd = parseEmailsFromInput(newEmail);
+  const parsedValid = parsedForAdd.filter((p) => p.includes("@"));
+  const allParsedAreAlreadyMembers =
+    parsedValid.length > 0 &&
+    parsedValid.every((p) =>
+      members.some((m) => m.email === p.toLowerCase()),
+    );
+  const alreadyMemberCount = parsedValid.filter((p) =>
+    members.some((m) => m.email === p.toLowerCase()),
+  ).length;
 
   if (loading) {
     return (
@@ -185,24 +235,43 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
       {/* Add member form */}
       <div className={styles.addFormWrap}>
         <form className={styles.addForm} onSubmit={handleAdd}>
-          <input
-            type="email"
-            className={`${styles.emailInput} ${isDuplicate ? styles.emailInputDuplicate : ""}`}
-            placeholder="member@example.com"
+          <textarea
+            className={`${styles.emailTextarea} ${allParsedAreAlreadyMembers ? styles.emailInputDuplicate : ""}`}
+            placeholder={"One email per line, or separate with commas\nmember1@example.com\nmember2@example.com"}
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
+            rows={4}
+            autoComplete="off"
+            spellCheck={false}
           />
           <button
             type="submit"
             className={styles.addBtn}
-            disabled={adding || !newEmail.trim() || isDuplicate}
+            disabled={
+              adding ||
+              parsedForAdd.length === 0 ||
+              parsedValid.length === 0 ||
+              parsedForAdd.length > MAX_BULK_ADD ||
+              allParsedAreAlreadyMembers
+            }
           >
-            {adding ? "Adding…" : "Add Member"}
+            {adding ? "Adding…" : parsedValid.length > 1 ? "Add Members" : "Add Member"}
           </button>
         </form>
-        {isDuplicate && (
+        {alreadyMemberCount > 0 && !allParsedAreAlreadyMembers && (
+          <p className={styles.duplicateMsg} role="status">
+            {alreadyMemberCount} of {parsedValid.length} already in this year; only new addresses
+            will be added.
+          </p>
+        )}
+        {allParsedAreAlreadyMembers && (
           <p className={styles.duplicateMsg} role="alert">
-            This email is already a member of this year.
+            Every address listed is already a member of this year.
+          </p>
+        )}
+        {addNotice && (
+          <p className={styles.addNotice} role="status">
+            {addNotice}
           </p>
         )}
       </div>
@@ -216,7 +285,7 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
       {/* Member list */}
       {members.length === 0 ? (
         <p className={styles.emptyHint}>
-          No members yet. Add an email above to grant access.
+          No members yet. Add one or more emails above to grant access.
         </p>
       ) : (
         <ul className={styles.memberList}>

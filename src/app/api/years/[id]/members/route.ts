@@ -11,6 +11,20 @@ export interface MemberEntry {
   role?: string;
 }
 
+export interface BulkAddMembersResponse {
+  members: MemberEntry[];
+  /** Non-empty input fragments that were not accepted as emails (e.g. typos). */
+  invalidInputs?: string[];
+}
+
+const MAX_MEMBERS_PER_REQUEST = 50;
+
+function normalizeEmail(value: string): string | null {
+  const e = value.trim().toLowerCase();
+  if (!e || !e.includes("@")) return null;
+  return e;
+}
+
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
@@ -58,9 +72,67 @@ export async function POST(
   }
 
   const raw = body as Record<string, unknown>;
-  const email = typeof raw.email === "string" ? raw.email.trim().toLowerCase() : "";
 
-  if (!email || !email.includes("@")) {
+  const bulkRaw = raw.emails;
+  if (Array.isArray(bulkRaw) && bulkRaw.length > 0) {
+    const seen = new Set<string>();
+    const normalized: string[] = [];
+    const invalidInputs: string[] = [];
+
+    for (const item of bulkRaw) {
+      if (typeof item !== "string") continue;
+      const n = normalizeEmail(item);
+      if (n) {
+        if (!seen.has(n)) {
+          seen.add(n);
+          normalized.push(n);
+        }
+      } else if (item.trim().length > 0) {
+        invalidInputs.push(item.trim());
+      }
+    }
+
+    if (normalized.length > MAX_MEMBERS_PER_REQUEST) {
+      return NextResponse.json(
+        { error: `At most ${MAX_MEMBERS_PER_REQUEST} emails per request` },
+        { status: 400 },
+      );
+    }
+
+    if (normalized.length === 0) {
+      return NextResponse.json({ error: "No valid emails" }, { status: 400 });
+    }
+
+    for (const email of normalized) {
+      await addMemberToYear(id, email);
+      await addYearToUser(email, id);
+    }
+
+    const users = await findUsersByEmails(normalized);
+    const userMap = new Map(users.map((u) => [u.email.toLowerCase(), u]));
+
+    const members: MemberEntry[] = normalized.map((email) => {
+      const user = userMap.get(email);
+      return {
+        email,
+        userId: user?.id,
+        name: user?.name || undefined,
+        picture: user?.picture || undefined,
+        role: user?.role,
+      };
+    });
+
+    const payload: BulkAddMembersResponse = {
+      members,
+      ...(invalidInputs.length > 0 ? { invalidInputs } : {}),
+    };
+
+    return NextResponse.json(payload, { status: 201 });
+  }
+
+  const email = typeof raw.email === "string" ? normalizeEmail(raw.email) : null;
+
+  if (!email) {
     return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
   }
 

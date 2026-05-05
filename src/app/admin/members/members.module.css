@@ -44,27 +44,36 @@
 
 .addForm {
   display: flex;
+  align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-5) var(--space-5) var(--space-4);
 }
 
-.emailInput {
+.emailTextarea {
   flex: 1;
+  min-height: 5rem;
+  resize: vertical;
   font-family: var(--font-sans);
   font-size: var(--text-sm);
+  line-height: 1.45;
   color: var(--color-text-primary);
   background-color: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
-  height: 2.5rem;
   outline: none;
   transition: border-color var(--duration-fast) var(--ease-default), box-shadow var(--duration-fast) var(--ease-default);
 }
 
-.emailInput:focus {
+.emailTextarea:focus {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px rgba(13, 14, 18, 0.06);
+}
+
+.addNotice {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  padding: 0 var(--space-5) var(--space-3);
 }
 
 .emailInputDuplicate {
@@ -83,6 +92,7 @@
 }
 
 .addBtn {
+  flex-shrink: 0;
   padding: 0 var(--space-5);
   height: 2.5rem;
   border-radius: var(--radius-md);
