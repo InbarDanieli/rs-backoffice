@@ -30,13 +30,25 @@ function getBootstrapEmails(): string[] {
   }
 }
 
+/**
+ * Redirect to /admin/unauthorized and clear any existing session/oauth cookies,
+ * so a failed re-auth attempt doesn't leave a stale session that lets the user
+ * loop back into the dashboard via the login-page redirect in proxy.ts.
+ */
+function unauthorizedRedirect(appUrl: string): NextResponse {
+  const response = NextResponse.redirect(new URL("/admin/unauthorized", appUrl));
+  response.cookies.delete("admin_session");
+  response.cookies.delete("oauth_state");
+  return response;
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const appUrl = process.env.APP_URL;
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
   if (!appUrl || !clientId || !clientSecret) {
-    return NextResponse.redirect(new URL("/admin/unauthorized", appUrl ?? request.url));
+    return unauthorizedRedirect(appUrl ?? request.url);
   }
 
   const { searchParams } = request.nextUrl;
@@ -45,11 +57,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const storedState = request.cookies.get("oauth_state")?.value;
 
   if (!state || !storedState || state !== storedState) {
-    return NextResponse.redirect(new URL("/admin/unauthorized", appUrl));
+    return unauthorizedRedirect(appUrl);
   }
 
   if (!code) {
-    return NextResponse.redirect(new URL("/admin/unauthorized", appUrl));
+    return unauthorizedRedirect(appUrl);
   }
 
   const redirectUri = `${appUrl}/api/auth/callback/google`;
@@ -69,7 +81,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const tokenData = (await tokenResponse.json()) as GoogleTokenResponse;
 
   if (!tokenResponse.ok || !tokenData.access_token) {
-    return NextResponse.redirect(new URL("/admin/unauthorized", appUrl));
+    return unauthorizedRedirect(appUrl);
   }
 
   const userInfoResponse = await fetch(
@@ -78,13 +90,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   );
 
   if (!userInfoResponse.ok) {
-    return NextResponse.redirect(new URL("/admin/unauthorized", appUrl));
+    return unauthorizedRedirect(appUrl);
   }
 
   const userInfo = (await userInfoResponse.json()) as GoogleUserInfo;
 
   if (!userInfo.verified_email) {
-    return NextResponse.redirect(new URL("/admin/unauthorized", appUrl));
+    return unauthorizedRedirect(appUrl);
   }
 
   const normalizedEmail = userInfo.email.toLowerCase();
@@ -103,7 +115,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   if (!isAllowed) {
-    return NextResponse.redirect(new URL("/admin/unauthorized", appUrl));
+    return unauthorizedRedirect(appUrl);
   }
 
   const dbUser = await upsertUser({
