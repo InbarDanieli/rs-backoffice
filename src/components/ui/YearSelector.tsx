@@ -32,8 +32,6 @@ export function YearSelector({
   years: yearsProp,
   activeYearId,
 }: YearSelectorProps) {
-  console.log({ activeYearId });
-
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [years, setYears] = useState(yearsProp);

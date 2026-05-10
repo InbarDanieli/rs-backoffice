@@ -224,6 +224,63 @@ export async function findOrCreateByEmail(email: string): Promise<User> {
   return user;
 }
 
+/**
+ * Admin-only: change a user's email. Validates format and global uniqueness,
+ * then propagates the new value into `year.memberEmails` for every year the
+ * user is a member of so the denormalized list stays in sync.
+ */
+export async function changeUserEmail(
+  id: string,
+  newEmailRaw: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const newEmail = newEmailRaw.trim().toLowerCase();
+  if (!newEmail || !newEmail.includes("@")) {
+    return { ok: false, reason: "invalid email" };
+  }
+
+  const user = await findUserById(id);
+  if (!user) return { ok: false, reason: "user not found" };
+
+  const oldEmail = user.email.toLowerCase();
+  if (oldEmail === newEmail) return { ok: true };
+
+  const conflict = await findUserByEmail(newEmail);
+  if (conflict && conflict.id !== id) {
+    return { ok: false, reason: "email already in use" };
+  }
+
+  const userCol = await getMemberCollection();
+  await userCol.updateOne(
+    { id },
+    { $set: { email: newEmail, updatedAt: new Date() } },
+  );
+
+  if (user.years.length > 0) {
+    const client = await clientPromise;
+    const yearCol = client
+      .db()
+      .collection<{ id: string; memberEmails: string[] }>("years");
+    // Pull the canonical lowercase form, then also the original-cased value
+    // in case any legacy rows stored it as mixed case.
+    await yearCol.updateMany(
+      { id: { $in: user.years } },
+      { $pull: { memberEmails: oldEmail }, $set: { updatedAt: new Date() } },
+    );
+    if (user.email !== oldEmail) {
+      await yearCol.updateMany(
+        { id: { $in: user.years } },
+        { $pull: { memberEmails: user.email } },
+      );
+    }
+    await yearCol.updateMany(
+      { id: { $in: user.years } },
+      { $addToSet: { memberEmails: newEmail } },
+    );
+  }
+
+  return { ok: true };
+}
+
 export async function updateUserById(
   id: string,
   fields: Partial<UpdatableUserFields>,

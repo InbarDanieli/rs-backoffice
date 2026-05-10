@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth/dal";
-import { findUserById, updateUserById, type UpdatableUserFields, type UserRole } from "@/lib/users";
+import {
+  changeUserEmail,
+  findUserById,
+  updateUserById,
+  type UpdatableUserFields,
+  type UserRole,
+} from "@/lib/users";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -41,6 +47,13 @@ export async function PATCH(
   }
 
   const raw = body as Record<string, unknown>;
+
+  if (actor.role === "admin" && typeof raw.email === "string") {
+    const result = await changeUserEmail(id, raw.email);
+    if (!result.ok) {
+      return NextResponse.json({ error: result.reason }, { status: 400 });
+    }
+  }
 
   const fields: Partial<UpdatableUserFields> = {
     name: typeof raw.name === "string" ? raw.name.trim() : undefined,

@@ -38,6 +38,12 @@ interface InfoFormProps {
   /** Show the role selector (admin-only). Defaults to false. */
   showRoleSelector?: boolean;
   defaultRole?: UserRole;
+  /** Show an editable email field (admin-only). Defaults to false. */
+  editableEmail?: boolean;
+  /** Controlled email value. Required when editableEmail is true. */
+  email?: string;
+  /** Called when the email input changes. Required when editableEmail is true. */
+  onEmailChange?: (email: string) => void;
   submitLabel?: string;
   discardLabel?: string;
   /** Called after a successful save, so the parent can clear its own dirty state (e.g. picture baseline). */
@@ -60,6 +66,9 @@ export function InfoForm({
   requireImage = true,
   showRoleSelector = false,
   defaultRole = "team-member",
+  editableEmail = false,
+  email,
+  onEmailChange,
   submitLabel = "Update Info",
   discardLabel = "Discard",
   onSaved,
@@ -93,6 +102,13 @@ export function InfoForm({
       newErrors.image = "Please set your profile image";
     }
 
+    if (editableEmail) {
+      const trimmed = (email ?? "").trim();
+      if (!trimmed || !trimmed.includes("@")) {
+        newErrors.email = "Please enter a valid email address";
+      }
+    }
+
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
 
@@ -107,6 +123,7 @@ export function InfoForm({
       }
       if (picture) body.picture = picture;
       if (showRoleSelector) body.role = selectedRole;
+      if (editableEmail && email) body.email = email.trim().toLowerCase();
 
       const res = await fetch(`/api/users/${userId}`, {
         method: "PATCH",
@@ -146,6 +163,24 @@ export function InfoForm({
         if (!isDirty) setIsDirty(true);
       }}
     >
+      {/* ── Email (admin-only) ── */}
+      {editableEmail && (
+        <div className={styles.emailSection}>
+          <label htmlFor="email" className={styles.emailLabel}>
+            Email Address
+          </label>
+          <input
+            id="email"
+            type="email"
+            className={styles.emailInput}
+            value={email ?? ""}
+            onChange={(e) => onEmailChange?.(e.target.value)}
+            autoComplete="email"
+            spellCheck={false}
+          />
+        </div>
+      )}
+
       {/* ── Role selector (admin-only) ── */}
       {showRoleSelector && (
         <div className={styles.roleSection}>

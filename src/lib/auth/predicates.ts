@@ -27,11 +27,14 @@ export const canReadUser: Predicate = ({ user, params }) =>
 
 /**
  * Self can edit own profile. Only admin can change someone else's profile.
- * Only admin can change the `role` field — including their own.
+ * Only admin can change the `role` or `email` field — including their own.
  */
 export const canEditUser: Predicate = ({ user, params, body }) => {
   if (user.role === "admin") return true;
   if (params.id !== user.userId) return false;
-  if (body && typeof body === "object" && "role" in body) return false;
+  if (body && typeof body === "object") {
+    if ("role" in body) return false;
+    if ("email" in body) return false;
+  }
   return true;
 };

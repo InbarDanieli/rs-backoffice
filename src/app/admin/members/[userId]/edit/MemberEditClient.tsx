@@ -15,20 +15,24 @@ interface MemberEditClientProps {
   picture: string;
   role: UserRole;
   defaultValues: InfoFormValues;
+  canEditEmail?: boolean;
 }
 
 export function MemberEditClient({
   userId,
   name,
-  email,
+  email: initialEmail,
   picture: initialPicture,
   role,
   defaultValues,
+  canEditEmail = false,
 }: MemberEditClientProps) {
   const [picture, setPicture] = useState(initialPicture);
   const [savedPicture, setSavedPicture] = useState(initialPicture);
+  const [email, setEmail] = useState(initialEmail);
+  const [savedEmail, setSavedEmail] = useState(initialEmail);
 
-  useUnsavedChangesWarning(picture !== savedPicture);
+  useUnsavedChangesWarning(picture !== savedPicture || email !== savedEmail);
 
   return (
     <div className={styles.grid}>
@@ -49,8 +53,14 @@ export function MemberEditClient({
           picture={picture}
           requireImage={false}
           defaultRole={role}
+          editableEmail={canEditEmail}
+          email={email}
+          onEmailChange={setEmail}
           submitLabel="Save Changes"
-          onSaved={() => setSavedPicture(picture)}
+          onSaved={() => {
+            setSavedPicture(picture);
+            setSavedEmail(email);
+          }}
         />
       </div>
     </div>

@@ -109,6 +109,7 @@ export default async function MemberEditPage({ params }: PageProps) {
         email={user.email}
         picture={user.picture ?? ""}
         role={user.role}
+        canEditEmail={isAdmin(currentUser.role)}
         defaultValues={{
           name: user.name ?? "",
           company: user.company ?? "",
