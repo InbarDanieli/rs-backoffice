@@ -433,3 +433,10 @@
     text-align: center;
   }
 }
+
+/* Touch devices have no hover — keep carousel remove button visible */
+@media (hover: none) {
+  .carouselRemoveBtn {
+    opacity: 1;
+  }
+}

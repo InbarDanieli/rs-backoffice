@@ -112,58 +112,123 @@
   color: var(--color-text-primary);
 }
 
-/* ── Mobile: sidebar becomes a top bar ── */
-@media (max-width: 640px) {
-  .root {
-    width: 100%;
-    min-width: 0;
-    height: auto;
-    position: static;
-    flex-direction: row;
+/* ── Mobile top bar (visible only ≤768px) ── */
+.mobileTopBar {
+  display: none;
+}
+
+.hamburgerBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
+}
+
+.hamburgerBtn:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+/* ── Drawer close button (visible only ≤768px) ── */
+.closeBtn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin-left: auto;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
+}
+
+.closeBtn:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+/* ── Backdrop (visible only when drawer is open on mobile) ── */
+.backdrop {
+  display: none;
+}
+
+/* ── Mobile: sidebar becomes an off-canvas drawer ── */
+@media (max-width: 768px) {
+  .mobileTopBar {
+    display: flex;
     align-items: center;
-    border-right: none;
+    justify-content: flex-start;
+    gap: var(--space-3);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3.5rem;
+    padding: 0 var(--space-4);
+    background-color: var(--color-surface);
     border-bottom: 1px solid var(--color-border);
+    z-index: 30;
+  }
+
+  .root {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 16rem;
+    min-width: 0;
+    height: 100vh;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform var(--duration-base) var(--ease-default);
+    box-shadow: var(--shadow-xl);
+    overflow-y: auto;
+  }
+
+  .root.open {
+    transform: translateX(0);
   }
 
   .header {
     flex-direction: row;
     align-items: center;
     gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    border-bottom: none;
-    border-right: 1px solid var(--color-border);
+    padding: var(--space-4);
   }
 
   .consoleBadge {
     display: none;
   }
 
-  .nav {
-    flex-direction: row;
-    padding: var(--space-2) var(--space-3);
-    gap: var(--space-1);
-    overflow-x: auto;
-    overflow-y: hidden;
-    flex: 1;
+  .closeBtn {
+    display: inline-flex;
   }
 
-  .navItem {
-    border-left: none;
-    border-bottom: 2px solid transparent;
-    white-space: nowrap;
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.45);
+    z-index: 40;
+    animation: fadeIn var(--duration-fast) var(--ease-default);
   }
 
-  .navItem.active {
-    border-left-color: transparent;
-    border-bottom-color: var(--color-accent);
-  }
-
-  .footer {
-    padding: var(--space-2) var(--space-3);
-    border-top: none;
-  }
-
-  .logout span {
-    display: none;
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 }

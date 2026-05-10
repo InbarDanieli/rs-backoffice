@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { Logo } from "@/components/ui/Logo";
 import { YearSelector, type YearOption } from "@/components/ui/YearSelector";
 import styles from "./AdminSidebar.module.css";
@@ -24,42 +27,98 @@ export function AdminSidebar({
   canManageYears = false,
   signOutHref = "/api/auth/logout",
 }: AdminSidebarProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeBtnRef.current?.focus();
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      hamburgerRef.current?.focus();
+    };
+  }, [isOpen]);
+
+  const close = () => setIsOpen(false);
+
   return (
-    <aside className={styles.root}>
-      <div className={styles.header}>
+    <>
+      <div className={styles.mobileTopBar}>
+        <button
+          ref={hamburgerRef}
+          type="button"
+          className={styles.hamburgerBtn}
+          aria-label="Open navigation menu"
+          aria-expanded={isOpen}
+          onClick={() => setIsOpen(true)}
+        >
+          <HamburgerIcon />
+        </button>
         <Logo size="sm" layout="horizontal" showTagline={false} />
-        <span className={styles.consoleBadge}>Admin Console</span>
       </div>
 
-      {canManageYears && (
-        <div className={styles.yearSection}>
-          <YearSelector years={years} activeYearId={activeYearId} />
-        </div>
+      {isOpen && (
+        <div
+          className={styles.backdrop}
+          onClick={close}
+          aria-hidden="true"
+        />
       )}
 
-      <nav className={styles.nav} aria-label="Main navigation">
-        {navItems.map((item) => (
-          <a
-            key={item.href}
-            href={item.href}
-            className={`${styles.navItem} ${item.active ? styles.active : ""}`}
-            aria-current={item.active ? "page" : undefined}
+      <aside className={`${styles.root} ${isOpen ? styles.open : ""}`}>
+        <div className={styles.header}>
+          <Logo size="sm" layout="horizontal" showTagline={false} />
+          <span className={styles.consoleBadge}>Admin Console</span>
+          <button
+            ref={closeBtnRef}
+            type="button"
+            className={styles.closeBtn}
+            aria-label="Close navigation menu"
+            onClick={close}
           >
-            <span className={styles.navIcon} aria-hidden="true">
-              {item.icon}
-            </span>
-            <span className={styles.navLabel}>{item.label}</span>
-          </a>
-        ))}
-      </nav>
+            <CloseIcon />
+          </button>
+        </div>
 
-      <div className={styles.footer}>
-        <a href={signOutHref} className={styles.logout}>
-          <LogoutIcon />
-          <span>Logout</span>
-        </a>
-      </div>
-    </aside>
+        {canManageYears && (
+          <div className={styles.yearSection}>
+            <YearSelector years={years} activeYearId={activeYearId} />
+          </div>
+        )}
+
+        <nav className={styles.nav} aria-label="Main navigation">
+          {navItems.map((item) => (
+            <a
+              key={item.href}
+              href={item.href}
+              className={`${styles.navItem} ${item.active ? styles.active : ""}`}
+              aria-current={item.active ? "page" : undefined}
+              onClick={close}
+            >
+              <span className={styles.navIcon} aria-hidden="true">
+                {item.icon}
+              </span>
+              <span className={styles.navLabel}>{item.label}</span>
+            </a>
+          ))}
+        </nav>
+
+        <div className={styles.footer}>
+          <a href={signOutHref} className={styles.logout}>
+            <LogoutIcon />
+            <span>Logout</span>
+          </a>
+        </div>
+      </aside>
+    </>
   );
 }
 
@@ -69,6 +128,25 @@ function LogoutIcon() {
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <polyline points="16 17 21 12 16 7" />
       <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+
+function HamburgerIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   );
 }

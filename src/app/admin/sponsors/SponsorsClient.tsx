@@ -177,7 +177,7 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
                   {sponsor.name.charAt(0)}
                 </div>
                 <span className={styles.sponsorName}>{sponsor.name}</span>
-                <div className={styles.rowActions}>
+                <div className={styles.tierSelectWrap}>
                   <Select
                     width={150}
                     options={TIER_OPTIONS}
@@ -187,6 +187,8 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
                     }
                     disabled={savingRoleForId === sponsor.id}
                   />
+                </div>
+                <div className={styles.rowActions}>
                   <button
                     type="button"
                     className={styles.actionBtn}

@@ -231,6 +231,10 @@
   padding: 0 var(--space-2);
 }
 
+.roleSelectWrap {
+  flex-shrink: 0;
+}
+
 .memberActions {
   display: flex;
   align-items: center;
@@ -310,12 +314,61 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .addForm {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .emailTextarea {
+    width: 100%;
   }
 
   .addBtn {
     width: 100%;
+  }
+
+  /* Stack member rows into a card on mobile */
+  .memberRow {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-4);
+  }
+
+  /* Avatar + info take row 1; remove button stays compact at the end */
+  .memberInfo {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Role select takes full row 2 (override Select inline width) */
+  .roleSelectWrap {
+    flex: 0 0 100%;
+  }
+  .roleSelectWrap > button {
+    width: 100% !important;
+  }
+  .rolePlaceholder {
+    display: none;
+  }
+
+  /* Action buttons take full row 3 */
+  .memberActions {
+    flex: 0 0 100%;
+    gap: var(--space-2);
+  }
+  .memberActions > a.actionBtn,
+  .memberActions > button.actionBtn {
+    flex: 1;
+    justify-content: center;
+    padding: var(--space-2) var(--space-3);
+  }
+  .notSignedIn {
+    flex: 1;
+    text-align: center;
+  }
+  /* Remove button stays compact, doesn't grow */
+  .removeBtn {
+    flex: 0 0 auto;
   }
 }

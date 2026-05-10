@@ -306,15 +306,17 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
                 </div>
 
                 {member.userId && !isSelf ? (
-                  <Select
-                    width={150}
-                    options={ROLE_OPTIONS}
-                    value={member.role ?? "team-member"}
-                    onChange={(newRole) =>
-                      handleRoleChange(member.userId!, newRole)
-                    }
-                    disabled={savingRoleForId === member.userId}
-                  />
+                  <div className={styles.roleSelectWrap}>
+                    <Select
+                      width={150}
+                      options={ROLE_OPTIONS}
+                      value={member.role ?? "team-member"}
+                      onChange={(newRole) =>
+                        handleRoleChange(member.userId!, newRole)
+                      }
+                      disabled={savingRoleForId === member.userId}
+                    />
+                  </div>
                 ) : (
                   <span className={styles.rolePlaceholder}>
                     {!member.userId ? "—" : ""}
