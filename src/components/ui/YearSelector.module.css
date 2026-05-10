@@ -196,6 +196,17 @@
   color: #b91c1c;
 }
 
+.contextItemSuccess {
+  color: #047857;
+  background-color: #ecfdf5;
+}
+
+.contextItemSuccess:disabled {
+  opacity: 1;
+  cursor: default;
+  color: #047857;
+}
+
 /* ── Divider ── */
 .divider {
   height: 1px;

@@ -8,18 +8,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import styles from "./members.module.css";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { ReorderMembersModal } from "./ReorderMembersModal";
 
 interface MembersClientProps {
   yearId: string;
   currentUserId: string;
-}
-
-function sortMembers(members: MemberEntry[], currentUserId: string): MemberEntry[] {
-  return [...members].sort((a, b) => {
-    if (a.userId === currentUserId) return -1;
-    if (b.userId === currentUserId) return 1;
-    return a.email.localeCompare(b.email);
-  });
 }
 
 const ROLE_OPTIONS = [
@@ -56,6 +49,8 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
   const [creatingProfileForEmail, setCreatingProfileForEmail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [addNotice, setAddNotice] = useState<string | null>(null);
+  const [reorderOpen, setReorderOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const router = useRouter();
 
   async function handleRoleChange(userId: string, newRole: string) {
@@ -86,7 +81,7 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
     fetch(`/api/years/${yearId}/members`)
       .then((res) => res.json())
       .then((data: MemberEntry[]) => {
-        if (!cancelled) setMembers(sortMembers(data, currentUserId));
+        if (!cancelled) setMembers(data);
       })
       .catch(() => {
         if (!cancelled) setError("Failed to load members.");
@@ -98,7 +93,7 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
     return () => {
       cancelled = true;
     };
-  }, [yearId, currentUserId]);
+  }, [yearId]);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -141,7 +136,7 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
               next.push(entry);
             }
           }
-          return sortMembers(next, currentUserId);
+          return next;
         });
         setNewEmail("");
         if (invalidNote) {
@@ -180,6 +175,32 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
     } finally {
       setRemovingEmail(null);
     }
+  }
+
+  async function handleReorderSave(orderedEmails: string[]) {
+    setError(null);
+    const res = await fetch(`/api/years/${yearId}/members`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emails: orderedEmails }),
+    });
+
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setError(data.error ?? "Failed to save the new order.");
+      return;
+    }
+
+    setMembers((prev) => {
+      const byEmail = new Map(prev.map((m) => [m.email, m]));
+      const next: MemberEntry[] = [];
+      for (const email of orderedEmails) {
+        const m = byEmail.get(email);
+        if (m) next.push(m);
+      }
+      return next;
+    });
+    setReorderOpen(false);
   }
 
   async function handleCreateAndEdit(email: string) {
@@ -230,51 +251,87 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
     );
   }
 
+  const showAddForm = addOpen || members.length === 0;
+
   return (
     <div className={styles.membersCard}>
-      {/* Add member form */}
-      <div className={styles.addFormWrap}>
-        <form className={styles.addForm} onSubmit={handleAdd}>
-          <textarea
-            className={`${styles.emailTextarea} ${allParsedAreAlreadyMembers ? styles.emailInputDuplicate : ""}`}
-            placeholder={"One email per line, or separate with commas\nmember1@example.com\nmember2@example.com"}
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            rows={4}
-            autoComplete="off"
-            spellCheck={false}
-          />
-          <button
-            type="submit"
-            className={styles.addBtn}
-            disabled={
-              adding ||
-              parsedForAdd.length === 0 ||
-              parsedValid.length === 0 ||
-              parsedForAdd.length > MAX_BULK_ADD ||
-              allParsedAreAlreadyMembers
-            }
-          >
-            {adding ? "Adding…" : parsedValid.length > 1 ? "Add Members" : "Add Member"}
-          </button>
-        </form>
-        {alreadyMemberCount > 0 && !allParsedAreAlreadyMembers && (
-          <p className={styles.duplicateMsg} role="status">
-            {alreadyMemberCount} of {parsedValid.length} already in this year; only new addresses
-            will be added.
-          </p>
-        )}
-        {allParsedAreAlreadyMembers && (
-          <p className={styles.duplicateMsg} role="alert">
-            Every address listed is already a member of this year.
-          </p>
-        )}
-        {addNotice && (
-          <p className={styles.addNotice} role="status">
-            {addNotice}
-          </p>
-        )}
+      {/* Toolbar */}
+      <div className={styles.toolbar}>
+        <span className={styles.count}>
+          {members.length} member{members.length !== 1 ? "s" : ""}
+        </span>
+        <div className={styles.toolbarActions}>
+          {members.length >= 2 && (
+            <button
+              type="button"
+              className={styles.toolbarBtn}
+              onClick={() => setReorderOpen(true)}
+            >
+              <ReorderIcon />
+              <span className={styles.toolbarBtnLabel}>Reorder</span>
+            </button>
+          )}
+          {members.length > 0 && (
+            <button
+              type="button"
+              className={`${styles.toolbarBtn} ${styles.toolbarBtnPrimary}`}
+              onClick={() => setAddOpen((v) => !v)}
+              aria-expanded={addOpen}
+            >
+              {addOpen ? <CloseIcon /> : <PlusIcon />}
+              <span className={styles.toolbarBtnLabel}>
+                {addOpen ? "Close" : "Add member"}
+              </span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Add member form (collapsible) */}
+      {showAddForm && (
+        <div className={styles.addFormWrap}>
+          <form className={styles.addForm} onSubmit={handleAdd}>
+            <textarea
+              className={`${styles.emailTextarea} ${allParsedAreAlreadyMembers ? styles.emailInputDuplicate : ""}`}
+              placeholder={"One email per line, or separate with commas\nmember1@example.com\nmember2@example.com"}
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              rows={3}
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <button
+              type="submit"
+              className={styles.addBtn}
+              disabled={
+                adding ||
+                parsedForAdd.length === 0 ||
+                parsedValid.length === 0 ||
+                parsedForAdd.length > MAX_BULK_ADD ||
+                allParsedAreAlreadyMembers
+              }
+            >
+              {adding ? "Adding…" : parsedValid.length > 1 ? "Add members" : "Add member"}
+            </button>
+          </form>
+          {alreadyMemberCount > 0 && !allParsedAreAlreadyMembers && (
+            <p className={styles.duplicateMsg} role="status">
+              {alreadyMemberCount} of {parsedValid.length} already in this year; only new addresses
+              will be added.
+            </p>
+          )}
+          {allParsedAreAlreadyMembers && (
+            <p className={styles.duplicateMsg} role="alert">
+              Every address listed is already a member of this year.
+            </p>
+          )}
+          {addNotice && (
+            <p className={styles.addNotice} role="status">
+              {addNotice}
+            </p>
+          )}
+        </div>
+      )}
 
       {error && (
         <p className={styles.errorMsg} role="alert">
@@ -299,80 +356,85 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
                   <span className={styles.memberName}>
                     {member.name || member.email}
                     {isSelf && <span className={styles.youBadge}>You</span>}
+                    {!member.userId && (
+                      <span className={styles.pendingBadge}>Not signed in</span>
+                    )}
                   </span>
                   {member.name && (
                     <span className={styles.memberEmailSub}>{member.email}</span>
                   )}
                 </div>
 
-                {member.userId && !isSelf ? (
-                  <div className={styles.roleSelectWrap}>
-                    <Select
-                      width={150}
-                      options={ROLE_OPTIONS}
-                      value={member.role ?? "team-member"}
-                      onChange={(newRole) =>
-                        handleRoleChange(member.userId!, newRole)
-                      }
-                      disabled={savingRoleForId === member.userId}
-                    />
-                  </div>
-                ) : (
-                  <span className={styles.rolePlaceholder}>
-                    {!member.userId ? "—" : ""}
-                  </span>
-                )}
-
-                <div className={styles.memberActions}>
-                  {isSelf ? null : member.userId ? (
-                    <>
-                      <Link
-                        href={`/admin/members/${member.userId}/view`}
-                        className={styles.actionBtn}
-                      >
-                        View
-                      </Link>
-                      <Link
-                        href={`/admin/members/${member.userId}/edit`}
-                        className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
-                      >
-                        Edit
-                      </Link>
-                    </>
+                <div className={styles.memberControls}>
+                  {member.userId && !isSelf ? (
+                    <div className={styles.roleSelectWrap}>
+                      <Select
+                        width={140}
+                        options={ROLE_OPTIONS}
+                        value={member.role ?? "team-member"}
+                        onChange={(newRole) =>
+                          handleRoleChange(member.userId!, newRole)
+                        }
+                        disabled={savingRoleForId === member.userId}
+                      />
+                    </div>
                   ) : (
-                    <>
-                      <span className={styles.notSignedIn}>Not signed in yet</span>
+                    <span className={styles.rolePlaceholder} aria-hidden="true" />
+                  )}
+
+                  <div className={styles.memberActions}>
+                    {isSelf ? null : member.userId ? (
+                      <>
+                        <Link
+                          href={`/admin/members/${member.userId}/view`}
+                          className={styles.actionBtn}
+                          aria-label={`View ${member.name || member.email}`}
+                        >
+                          View
+                        </Link>
+                        <Link
+                          href={`/admin/members/${member.userId}/edit`}
+                          className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+                          aria-label={`Edit ${member.name || member.email}`}
+                        >
+                          Edit
+                        </Link>
+                      </>
+                    ) : (
                       <button
                         type="button"
                         className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
                         onClick={() => handleCreateAndEdit(member.email)}
                         disabled={creatingProfileForEmail === member.email}
                       >
-                        {creatingProfileForEmail === member.email ? "Setting up…" : "Edit"}
+                        {creatingProfileForEmail === member.email ? "Setting up…" : "Set up"}
                       </button>
-                    </>
-                  )}
-                  {!isSelf && (
-                    <button
-                      type="button"
-                      className={styles.removeBtn}
-                      onClick={() => setPendingRemoveEmail(member.email)}
-                      disabled={removingEmail === member.email}
-                      aria-label={`Remove ${member.email}`}
-                    >
-                      {removingEmail === member.email ? "…" : <TrashIcon />}
-                    </button>
-                  )}
+                    )}
+                    {!isSelf && (
+                      <button
+                        type="button"
+                        className={styles.removeBtn}
+                        onClick={() => setPendingRemoveEmail(member.email)}
+                        disabled={removingEmail === member.email}
+                        aria-label={`Remove ${member.email}`}
+                      >
+                        {removingEmail === member.email ? "…" : <TrashIcon />}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </li>
             );
           })}
         </ul>
       )}
-
-      <p className={styles.hint}>
-        {members.length} member{members.length !== 1 ? "s" : ""}
-      </p>
+      <ReorderMembersModal
+        isOpen={reorderOpen}
+        onClose={() => setReorderOpen(false)}
+        members={members}
+        currentUserId={currentUserId}
+        onSave={handleReorderSave}
+      />
 
       <ConfirmModal
         isOpen={!!pendingRemoveEmail}
@@ -410,6 +472,64 @@ function MemberAvatar({ member }: { member: MemberEntry }) {
     <span className={styles.memberAvatar} aria-hidden="true">
       {member.email[0].toUpperCase()}
     </span>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function ReorderIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="15" y2="12" />
+      <line x1="3" y1="18" x2="18" y2="18" />
+    </svg>
   );
 }
 

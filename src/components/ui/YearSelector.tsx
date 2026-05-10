@@ -48,10 +48,12 @@ export function YearSelector({
   const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<YearOption | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [copiedYearId, setCopiedYearId] = useState<string | null>(null);
 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -59,6 +61,11 @@ export function YearSelector({
   useEffect(() => {
     setYears(yearsProp);
   }, [yearsProp]);
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
 
   const activeYear =
     years.find((y) => y.id === activeYearId) ?? years[0] ?? null;
@@ -134,6 +141,26 @@ export function YearSelector({
     } finally {
       setSettingDefaultId(null);
     }
+  }
+
+  async function copyYearId(
+    e: React.MouseEvent<HTMLButtonElement>,
+    yearId: string,
+  ) {
+    e.stopPropagation();
+    const ok = await writeToClipboard(yearId);
+    if (!ok) {
+      console.error("Failed to copy year ID");
+      return;
+    }
+    setCopiedYearId(yearId);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => {
+      setCopiedYearId(null);
+      setOpenMenuId(null);
+      setContextMenuPos(null);
+      setIsOpen(false);
+    }, 600);
   }
 
   function openDeleteModal(e: React.MouseEvent, year: YearOption) {
@@ -313,6 +340,24 @@ export function YearSelector({
             <>
               <button
                 type="button"
+                className={`${styles.contextItem} ${copiedYearId === year.id ? styles.contextItemSuccess : ""}`}
+                onClick={(e) => copyYearId(e, year.id)}
+                disabled={copiedYearId === year.id}
+              >
+                {copiedYearId === year.id ? (
+                  <>
+                    <CheckIcon />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <CopyIcon />
+                    Copy year ID
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
                 className={styles.contextItem}
                 onClick={(e) => handleSetDefault(e, year.id)}
                 disabled={year.isDefault}
@@ -320,6 +365,7 @@ export function YearSelector({
                 <StarIcon />
                 {year.isDefault ? "Already default" : "Set as default"}
               </button>
+
               {!year.isDefault && (
                 <>
                   <div className={styles.contextDivider} />
@@ -375,6 +421,36 @@ export function YearSelector({
       />
     </>
   );
+}
+
+/**
+ * Copy text to the clipboard. Falls back to a hidden textarea + execCommand
+ * for non-secure contexts (http://, some embedded webviews) where
+ * navigator.clipboard is unavailable.
+ */
+async function writeToClipboard(text: string): Promise<boolean> {
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through to legacy path
+    }
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
 }
 
 // ── Icons ──────────────────────────────────────────────────────────────────
@@ -471,6 +547,25 @@ function DotsIcon() {
       <circle cx="5" cy="12" r="2" />
       <circle cx="12" cy="12" r="2" />
       <circle cx="19" cy="12" r="2" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
     </svg>
   );
 }

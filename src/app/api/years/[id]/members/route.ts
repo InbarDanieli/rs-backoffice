@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth/dal";
-import { findYearById, addMemberToYear, removeMemberFromYear } from "@/lib/years";
+import {
+  findYearById,
+  addMemberToYear,
+  removeMemberFromYear,
+  setMemberOrder,
+} from "@/lib/years";
 import { addYearToUser, removeYearFromUser, findUsersByEmails } from "@/lib/users";
 
 export interface MemberEntry {
@@ -150,6 +155,39 @@ export async function POST(
   };
 
   return NextResponse.json(entry, { status: 201 });
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: RouteParams,
+): Promise<NextResponse> {
+  await verifySession();
+
+  const { id } = await params;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const raw = body as Record<string, unknown>;
+  const emails = Array.isArray(raw.emails) ? raw.emails : null;
+  if (!emails || !emails.every((e) => typeof e === "string")) {
+    return NextResponse.json(
+      { error: "emails must be an array of strings" },
+      { status: 400 },
+    );
+  }
+
+  const result = await setMemberOrder(id, emails as string[]);
+  if (!result.ok) {
+    const status = result.reason === "year not found" ? 404 : 400;
+    return NextResponse.json({ error: result.reason }, { status });
+  }
+
+  return NextResponse.json({ success: true });
 }
 
 export async function DELETE(

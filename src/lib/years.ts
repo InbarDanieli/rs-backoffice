@@ -147,3 +147,42 @@ export async function removeMemberFromYear(
     },
   );
 }
+
+/**
+ * Replace a year's `memberEmails` array with `emails` in the given order.
+ * Validates that the new list contains exactly the same set of emails (no
+ * adds, removes, or duplicates) — order changes only.
+ */
+export async function setMemberOrder(
+  yearId: string,
+  emails: string[],
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const year = await findYearById(yearId);
+  if (!year) return { ok: false, reason: "year not found" };
+
+  const normalized = emails
+    .map((e) => (typeof e === "string" ? e.trim().toLowerCase() : ""))
+    .filter((e) => e.length > 0);
+
+  if (new Set(normalized).size !== normalized.length) {
+    return { ok: false, reason: "duplicate emails" };
+  }
+
+  const current = new Set(year.memberEmails.map((e) => e.toLowerCase()));
+  const next = new Set(normalized);
+
+  if (current.size !== next.size) {
+    return { ok: false, reason: "set mismatch" };
+  }
+  for (const e of current) {
+    if (!next.has(e)) return { ok: false, reason: "set mismatch" };
+  }
+
+  const col = await getCollection();
+  await col.updateOne(
+    { id: yearId },
+    { $set: { memberEmails: normalized, updatedAt: new Date() } },
+  );
+
+  return { ok: true };
+}

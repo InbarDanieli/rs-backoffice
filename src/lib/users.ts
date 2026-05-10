@@ -188,6 +188,24 @@ export async function findUsersByEmails(emails: string[]): Promise<User[]> {
 }
 
 /**
+ * Like `findUsersByEmails`, but returns users in the same order as the input
+ * `emails` array. Emails with no matching user are skipped.
+ */
+export async function findUsersByEmailsOrdered(
+  emails: string[],
+): Promise<User[]> {
+  if (emails.length === 0) return [];
+  const users = await findUsersByEmails(emails);
+  const byEmail = new Map(users.map((u) => [u.email.toLowerCase(), u]));
+  const out: User[] = [];
+  for (const e of emails) {
+    const u = byEmail.get(e.toLowerCase());
+    if (u) out.push(u);
+  }
+  return out;
+}
+
+/**
  * Find an existing user by email or create a minimal profile for them.
  * Used when an admin wants to pre-populate a profile before the member signs in.
  */
