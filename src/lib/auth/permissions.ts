@@ -116,7 +116,7 @@ export const ROUTE_PERMISSIONS: Record<string, RouteConfig> = {
   },
   "/api/users": {
     perMethod: {
-      GET: { roles: ["admin"], redirectToLogin: false },
+      GET: { roles: "public", redirectToLogin: false },
       POST: { roles: ["admin"], redirectToLogin: false },
     },
   },
