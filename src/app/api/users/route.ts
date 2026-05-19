@@ -18,7 +18,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const users = await findUsersByEmailsOrdered(year.memberEmails);
-  return NextResponse.json(users);
+  return NextResponse.json(users.map(({ email: _email, ...rest }) => rest));
 }
 
 export async function POST(request: Request) {
