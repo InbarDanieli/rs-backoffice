@@ -9,6 +9,9 @@
 
 /* ── Status banners ── */
 .bannerError {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   padding: var(--space-3) var(--space-6);
   background-color: #fef2f2;
   border-bottom: 1px solid #fca5a5;
@@ -18,12 +21,105 @@
 }
 
 .bannerSuccess {
-  padding: var(--space-3) var(--space-6);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
   background-color: #f0fdf4;
   border-bottom: 1px solid #86efac;
-  color: #16a34a;
+  color: #15803d;
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
+}
+
+/* Round badge holding the icon inside a banner */
+.bannerIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  font-weight: var(--weight-bold);
+}
+
+.bannerSuccess .bannerIcon {
+  background-color: #16a34a;
+  color: #fff;
+}
+
+.bannerError .bannerIcon {
+  background-color: #dc2626;
+  color: #fff;
+}
+
+/* ── Validation summary box ── */
+.errorBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  background-color: #fef2f2;
+  border-bottom: 1px solid #fca5a5;
+}
+
+.errorTitle {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: #b91c1c;
+}
+
+.errorList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+}
+
+.errorItem {
+  font-size: var(--text-sm);
+  color: #dc2626;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.errorItem::before {
+  content: "•";
+  flex-shrink: 0;
+}
+
+/* ── Required / optional markers ── */
+.required {
+  color: #dc2626;
+  font-weight: var(--weight-bold);
+}
+
+.optional {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-normal);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* ── Invalid field highlighting ── */
+.inputError,
+.inputError:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+.sectionInvalid {
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.35);
+}
+
+.listItemInvalid {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.12);
 }
 
 /* ── Section ── */

@@ -16,6 +16,7 @@ import { useRef, useState } from "react";
 import styles from "./edit.module.css";
 import { Popup } from "@/components/ui/Popup";
 import { useUnsavedChangesWarning } from "@/lib/hooks/useUnsavedChangesWarning";
+import { validateSponsorFields } from "@/lib/sponsor-validation";
 
 interface SponsorEditClientProps {
   sponsor: Sponsor;
@@ -94,6 +95,33 @@ function CameraIcon() {
   );
 }
 
+function CheckIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+/** Red asterisk used to mark required fields. */
+function RequiredMark() {
+  return (
+    <span className={styles.required} aria-hidden="true">
+      *
+    </span>
+  );
+}
+
 function newPosition(): SponsorPosition {
   return { name: "", location: "", link: "" };
 }
@@ -120,6 +148,11 @@ export function SponsorEditClient({
   ) => {
     setActiveDefaultValues((prev) => ({ ...prev, [field]: value }));
     setIsDirty(true);
+    // Clear validation messages as soon as the user starts fixing things.
+    if (fieldErrors.length) {
+      setFieldErrors([]);
+      setInvalidFields({});
+    }
   };
   const carouselImages = activeDefaultValues.carouselImages ?? [];
   const testimonials = activeDefaultValues.testimonials ?? [];
@@ -129,6 +162,14 @@ export function SponsorEditClient({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+
+  // List of human-readable problems to fix before saving, and a lookup of
+  // which fields to highlight in red.
+  const [fieldErrors, setFieldErrors] = useState<string[]>([]);
+  const [invalidFields, setInvalidFields] = useState<Record<string, boolean>>(
+    {},
+  );
+  const formRef = useRef<HTMLDivElement>(null);
 
   useUnsavedChangesWarning(isDirty || saving);
 
@@ -208,6 +249,8 @@ export function SponsorEditClient({
   }
 
   function removePosition(idx: number) {
+    // Keep at least the minimum of 2 positions.
+    if (positions.length <= 2) return;
     updateField(
       "positions",
       positions.filter((_, i) => i !== idx),
@@ -238,8 +281,39 @@ export function SponsorEditClient({
     );
   }
 
+  // ── Validation ───────────────────────────────────────────────────────────────
+  /**
+   * Checks every required field and returns the list of friendly problems plus
+   * the set of fields to highlight. An empty problems list means the form is
+   * ready to save.
+   */
+  function validate(): {
+    problems: string[];
+    invalid: Record<string, boolean>;
+  } {
+    // Same rules the server enforces — see @/lib/sponsor-validation.
+    const errors = validateSponsorFields(activeDefaultValues);
+    const problems = errors.map((e) => e.message);
+    const invalid: Record<string, boolean> = {};
+    for (const e of errors) invalid[e.field] = true;
+    return { problems, invalid };
+  }
+
   // ── Save ─────────────────────────────────────────────────────────────────────
   async function handleSave() {
+    const { problems, invalid } = validate();
+    if (problems.length > 0) {
+      setFieldErrors(problems);
+      setInvalidFields(invalid);
+      setSaved(false);
+      setError(null);
+      // Bring the summary into view so the user sees what needs fixing.
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    setFieldErrors([]);
+    setInvalidFields({});
     setSaving(true);
     setSaved(false);
     setError(null);
@@ -280,16 +354,39 @@ export function SponsorEditClient({
   }
 
   return (
-    <div className={styles.formCard}>
-      {/* ── Top-of-form status banner ── */}
+    <div className={styles.formCard} ref={formRef}>
+      {/* ── Top-of-form status banners ── */}
+      {fieldErrors.length > 0 && (
+        <div className={styles.errorBox} role="alert">
+          <p className={styles.errorTitle}>
+            Please fix the following before saving:
+          </p>
+          <ul className={styles.errorList}>
+            {fieldErrors.map((msg) => (
+              <li key={msg} className={styles.errorItem}>
+                {msg}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {error && (
         <div className={styles.bannerError} role="alert">
-          {error}
+          <span className={styles.bannerIcon} aria-hidden="true">
+            !
+          </span>
+          <span>{error}</span>
         </div>
       )}
       {saved && !error && (
         <div className={styles.bannerSuccess} role="status">
-          Changes saved!{isPublic ? "" : " Redirecting…"}
+          <span className={styles.bannerIcon} aria-hidden="true">
+            <CheckIcon />
+          </span>
+          <span>
+            <strong>Saved successfully!</strong> Your company profile has been
+            updated.{isPublic ? "" : " Redirecting…"}
+          </span>
         </div>
       )}
 
@@ -302,10 +399,12 @@ export function SponsorEditClient({
               key={f.name}
               className={`${styles.field} ${f.half ? "" : styles.fieldFull}`}
             >
-              <label className={styles.label}>{f.label}</label>
+              <label className={styles.label}>
+                {f.label} <RequiredMark />
+              </label>
               <input
                 type="text"
-                className={styles.input}
+                className={`${styles.input} ${invalidFields[f.name] ? styles.inputError : ""}`}
                 placeholder={f.placeholder}
                 value={
                   f.name === "name"
@@ -320,9 +419,11 @@ export function SponsorEditClient({
             </div>
           ))}
           <div className={`${styles.field} ${styles.fieldFull}`}>
-            <label className={styles.label}>Company Description</label>
+            <label className={styles.label}>
+              Company Description <RequiredMark />
+            </label>
             <textarea
-              className={styles.textarea}
+              className={`${styles.textarea} ${invalidFields.description ? styles.inputError : ""}`}
               placeholder="Up to 3 paragraphs describing the company…"
               value={activeDefaultValues.description}
               onChange={(e) => updateField("description", e.target.value)}
@@ -334,11 +435,13 @@ export function SponsorEditClient({
 
       {/* ── Logo ── */}
       <div className={styles.section}>
-        <p className={styles.sectionLabel}>Company Logo</p>
+        <p className={styles.sectionLabel}>
+          Company Logo <RequiredMark />
+        </p>
         <div className={styles.logoSection}>
           <button
             type="button"
-            className={styles.logoPreviewWrap}
+            className={`${styles.logoPreviewWrap} ${invalidFields.logo ? styles.inputError : ""}`}
             onClick={() => logoInputRef.current?.click()}
             aria-label="Change company logo"
           >
@@ -385,8 +488,12 @@ export function SponsorEditClient({
 
       {/* ── Carousel ── */}
       <div className={styles.section}>
-        <p className={styles.sectionLabel}>Carousel Images</p>
-        <div className={styles.carouselGrid}>
+        <p className={styles.sectionLabel}>
+          Carousel Images <RequiredMark />
+        </p>
+        <div
+          className={`${styles.carouselGrid} ${invalidFields.carousel ? styles.sectionInvalid : ""}`}
+        >
           {carouselImages.map((src, idx) => (
             <div key={idx} className={styles.carouselThumb}>
               <Image
@@ -419,7 +526,8 @@ export function SponsorEditClient({
           )}
         </div>
         <p className={styles.carouselHint}>
-          Up to 8 images, recommended 16:9 ratio.
+          At least 1 required, up to 8 images. Recommended 16:9 ratio.
+          {` (${carouselImages.length}/8 added)`}
         </p>
         <input
           ref={carouselInputRef}
@@ -433,7 +541,9 @@ export function SponsorEditClient({
 
       {/* ── Socials ── */}
       <div className={styles.section}>
-        <p className={styles.sectionLabel}>Social Links</p>
+        <p className={styles.sectionLabel}>
+          Social Links <span className={styles.optional}>(optional)</span>
+        </p>
         <div className={styles.fieldGrid}>
           {SPONSOR_SOCIAL_FIELDS.map((f) => (
             <div
@@ -459,24 +569,36 @@ export function SponsorEditClient({
 
       {/* ── Tech Stack ── */}
       <div className={styles.section}>
-        <p className={styles.sectionLabel}>Technology Stack</p>
-        <TagInput
-          value={techStack}
-          onChange={(tags) => {
-            updateField("techStack", tags);
-          }}
-          placeholder="Type a technology and press Enter or comma…"
-        />
+        <p className={styles.sectionLabel}>
+          Technology Stack <RequiredMark />
+        </p>
+        <div className={invalidFields.techStack ? styles.sectionInvalid : ""}>
+          <TagInput
+            value={techStack}
+            onChange={(tags) => {
+              updateField("techStack", tags);
+            }}
+            placeholder="Type a technology and press Enter or comma…"
+          />
+        </div>
+        <p className={styles.carouselHint}>
+          Add at least one technology your company uses.
+        </p>
       </div>
 
       {/* ── Open Positions ── */}
       <div className={styles.section}>
-        <p className={styles.sectionLabel}>Open Positions (2–8)</p>
+        <p className={styles.sectionLabel}>
+          Open Positions (2–8 required) <RequiredMark />
+        </p>
         {positions.map((pos, idx) => (
-          <div key={idx} className={styles.listItem}>
+          <div
+            key={idx}
+            className={`${styles.listItem} ${invalidFields[`position-${idx}`] ? styles.listItemInvalid : ""}`}
+          >
             <div className={styles.listItemHeader}>
               <span className={styles.listItemNum}>Position {idx + 1}</span>
-              {positions.length > 1 && (
+              {positions.length > 2 && (
                 <button
                   type="button"
                   className={styles.removeItemBtn}
@@ -487,27 +609,32 @@ export function SponsorEditClient({
               )}
             </div>
             <div className={styles.fieldGrid}>
-              {POSITION_FIELDS.map((f) => (
-                <div
-                  key={f.name}
-                  className={`${styles.field} ${f.half ? "" : styles.fieldFull}`}
-                >
-                  <label className={styles.label}>{f.label}</label>
-                  <input
-                    type={f.name === "link" ? "url" : "text"}
-                    className={styles.input}
-                    placeholder={f.placeholder}
-                    value={pos[f.name as keyof SponsorPosition]}
-                    onChange={(e) =>
-                      updatePosition(
-                        idx,
-                        f.name as keyof SponsorPosition,
-                        e.target.value,
-                      )
-                    }
-                  />
-                </div>
-              ))}
+              {POSITION_FIELDS.map((f) => {
+                const required = f.name === "name" || f.name === "link";
+                return (
+                  <div
+                    key={f.name}
+                    className={`${styles.field} ${f.half ? "" : styles.fieldFull}`}
+                  >
+                    <label className={styles.label}>
+                      {f.label} {required && <RequiredMark />}
+                    </label>
+                    <input
+                      type={f.name === "link" ? "url" : "text"}
+                      className={styles.input}
+                      placeholder={f.placeholder}
+                      value={pos[f.name as keyof SponsorPosition]}
+                      onChange={(e) =>
+                        updatePosition(
+                          idx,
+                          f.name as keyof SponsorPosition,
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))}
@@ -523,9 +650,15 @@ export function SponsorEditClient({
 
       {/* ── Testimonials ── */}
       <div className={styles.section}>
-        <p className={styles.sectionLabel}>Testimonials (up to 3)</p>
+        <p className={styles.sectionLabel}>
+          Testimonials (up to 3){" "}
+          <span className={styles.optional}>(optional)</span>
+        </p>
         {testimonials.map((t, idx) => (
-          <div key={idx} className={styles.listItem}>
+          <div
+            key={idx}
+            className={`${styles.listItem} ${invalidFields[`testimonial-${idx}`] ? styles.listItemInvalid : ""}`}
+          >
             <div className={styles.listItemHeader}>
               <span className={styles.listItemNum}>Testimonial {idx + 1}</span>
               <button

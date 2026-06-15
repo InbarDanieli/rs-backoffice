@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth/dal";
 import { findSponsorById, updateSponsor, deleteSponsor, type UpdatableSponsorFields } from "@/lib/sponsors";
+import {
+  validateSponsorFields,
+  isFullSponsorProfilePayload,
+} from "@/lib/sponsor-validation";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -28,6 +32,22 @@ export async function PATCH(
   if (!sponsor) return NextResponse.json({ error: "Sponsor not found" }, { status: 404 });
 
   const body = (await request.json()) as Partial<UpdatableSponsorFields>;
+
+  // Reject incomplete profile submissions (backstop for the client-side form).
+  // Partial updates such as a tier change are not full profiles and skip this.
+  if (isFullSponsorProfilePayload(body)) {
+    const errors = validateSponsorFields(body);
+    if (errors.length > 0) {
+      return NextResponse.json(
+        {
+          error: "Please complete all required fields before saving.",
+          details: errors.map((e) => e.message),
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   await updateSponsor(id, body);
 
   const updated = await findSponsorById(id);
