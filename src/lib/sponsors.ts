@@ -60,6 +60,18 @@ export type UpdatableSponsorFields = Omit<
   | "updatedAt"
 >;
 
+/** Sponsor shape safe to expose on the public site — no edit-link secrets. */
+export type PublicSponsor = Omit<
+  Sponsor,
+  "publicToken" | "publicTokenExpiresAt"
+>;
+
+export function toPublicSponsor(sponsor: Sponsor): PublicSponsor {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { publicToken, publicTokenExpiresAt, ...rest } = sponsor;
+  return rest;
+}
+
 async function getCollection(): Promise<Collection<Sponsor>> {
   const client = await clientPromise;
   return client.db().collection<Sponsor>("sponsors");

@@ -148,6 +148,7 @@ export const ROUTE_PERMISSIONS: Record<string, RouteConfig> = {
   "/api/auth/callback/google": { roles: "public" },
   "/api/auth/logout": { roles: "public" },
   "/api/public/[token]": { roles: "public" },
+  "/api/public/sponsors": { roles: "public", redirectToLogin: false },
 };
 
 /**
