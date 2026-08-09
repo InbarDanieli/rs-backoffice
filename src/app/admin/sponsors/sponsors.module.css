@@ -153,6 +153,18 @@
   white-space: nowrap;
 }
 
+/* ── Last updated ── */
+.lastUpdated {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.lastUpdatedEmpty {
+  font-style: italic;
+  color: var(--color-text-muted);
+}
+
 /* ── Tier select wrapper (between name and actions) ── */
 .tierSelectWrap {
   flex-shrink: 0;
@@ -253,6 +265,11 @@
     flex: 1;
     min-width: 0;
     white-space: normal;
+  }
+
+  /* Last updated takes its own full row */
+  .lastUpdated {
+    flex: 0 0 100%;
   }
 
   /* Tier select takes its own full row */

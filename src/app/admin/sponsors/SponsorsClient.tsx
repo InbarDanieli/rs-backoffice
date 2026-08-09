@@ -39,6 +39,21 @@ function TrashIcon() {
   );
 }
 
+function formatLastUpdated(sponsor: Sponsor): string {
+  if (!sponsor.updated) return "Not updated yet";
+  const date = new Date(sponsor.updatedAt);
+  const datePart = date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+  const timePart = date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${datePart}, ${timePart}`;
+}
+
 function LinkIcon() {
   return (
     <svg
@@ -177,6 +192,11 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
                   {sponsor.name.charAt(0)}
                 </div>
                 <span className={styles.sponsorName}>{sponsor.name}</span>
+                <span
+                  className={`${styles.lastUpdated} ${!sponsor.updated ? styles.lastUpdatedEmpty : ""}`}
+                >
+                  {formatLastUpdated(sponsor)}
+                </span>
                 <div className={styles.tierSelectWrap}>
                   <Select
                     width={150}

@@ -7,6 +7,7 @@ import {
   isDataUrl,
   isOwnedRawUrl,
 } from "./github/images";
+import { isFullSponsorProfilePayload } from "./sponsor-validation";
 
 export interface SponsorPosition {
   name: string;
@@ -47,6 +48,8 @@ export interface Sponsor {
   publicTokenExpiresAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  /** True once a full profile has been saved via the admin or public edit form. */
+  updated: boolean;
   tier: SponsorTier;
 }
 
@@ -58,6 +61,7 @@ export type UpdatableSponsorFields = Omit<
   | "publicTokenExpiresAt"
   | "createdAt"
   | "updatedAt"
+  | "updated"
 >;
 
 /** Sponsor shape safe to expose on the public site — no edit-link secrets. */
@@ -131,6 +135,7 @@ export async function createSponsor(
     testimonials: [],
     createdAt: now,
     updatedAt: now,
+    updated: false,
     tier: "game-changer",
   };
   await col.insertOne(sponsor);
@@ -220,8 +225,18 @@ export async function updateSponsor(
     }
   }
 
+  const now = new Date();
   const col = await getCollection();
-  await col.updateOne({ id }, { $set: { ...next, updatedAt: new Date() } });
+  await col.updateOne(
+    { id },
+    {
+      $set: {
+        ...next,
+        updatedAt: now,
+        ...(isFullSponsorProfilePayload(fields) ? { updated: true } : {}),
+      },
+    },
+  );
 
   if (toDelete.length > 0) {
     const results = await Promise.allSettled(toDelete.map(deleteImage));
