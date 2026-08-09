@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { verifySession } from "@/lib/auth/dal";
 import { findSponsorById, updateSponsor, deleteSponsor, type UpdatableSponsorFields } from "@/lib/sponsors";
 import {
   validateSponsorFields,
   isFullSponsorProfilePayload,
 } from "@/lib/sponsor-validation";
+import { triggerSiteDeploy } from "@/lib/github/deploy";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -49,6 +50,7 @@ export async function PATCH(
   }
 
   await updateSponsor(id, body);
+  after(() => triggerSiteDeploy(`sponsor ${id} updated`));
 
   const updated = await findSponsorById(id);
   return NextResponse.json(updated);
@@ -65,5 +67,7 @@ export async function DELETE(
   if (!sponsor) return NextResponse.json({ error: "Sponsor not found" }, { status: 404 });
 
   await deleteSponsor(id);
+  after(() => triggerSiteDeploy(`sponsor ${id} deleted`));
+
   return NextResponse.json({ success: true });
 }

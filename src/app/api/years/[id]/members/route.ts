@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { verifySession } from "@/lib/auth/dal";
 import {
   findYearById,
@@ -7,6 +7,7 @@ import {
   setMemberOrder,
 } from "@/lib/years";
 import { addYearToUser, removeYearFromUser, findUsersByEmails } from "@/lib/users";
+import { triggerSiteDeploy } from "@/lib/github/deploy";
 
 export interface MemberEntry {
   email: string;
@@ -132,6 +133,8 @@ export async function POST(
       ...(invalidInputs.length > 0 ? { invalidInputs } : {}),
     };
 
+    after(() => triggerSiteDeploy(`${normalized.length} member(s) added to year ${id}`));
+
     return NextResponse.json(payload, { status: 201 });
   }
 
@@ -153,6 +156,8 @@ export async function POST(
     picture: user?.picture || undefined,
     role: user?.role,
   };
+
+  after(() => triggerSiteDeploy(`member ${email} added to year ${id}`));
 
   return NextResponse.json(entry, { status: 201 });
 }
@@ -187,6 +192,8 @@ export async function PUT(
     return NextResponse.json({ error: result.reason }, { status });
   }
 
+  after(() => triggerSiteDeploy(`members reordered for year ${id}`));
+
   return NextResponse.json({ success: true });
 }
 
@@ -216,6 +223,7 @@ export async function DELETE(
 
   await removeMemberFromYear(id, email);
   await removeYearFromUser(email, id);
+  after(() => triggerSiteDeploy(`member ${email} removed from year ${id}`));
 
   return NextResponse.json({ success: true });
 }

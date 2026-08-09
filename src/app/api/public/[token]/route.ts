@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { findSponsorByToken, updateSponsor, type UpdatableSponsorFields } from "@/lib/sponsors";
+import { triggerSiteDeploy } from "@/lib/github/deploy";
 import {
   validateSponsorFields,
   isFullSponsorProfilePayload,
@@ -58,6 +59,8 @@ export async function PATCH(
   delete safeFields.publicTokenExpiresAt;
 
   await updateSponsor(sponsor.id, safeFields as Partial<UpdatableSponsorFields>);
+  after(() => triggerSiteDeploy(`sponsor ${sponsor.id} updated via public link`));
+
   const updated = await findSponsorByToken(token);
   return NextResponse.json(updated);
 }

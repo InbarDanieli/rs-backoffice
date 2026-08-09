@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { verifySession } from "@/lib/auth/dal";
 import { listSponsorsByYear, createSponsor } from "@/lib/sponsors";
+import { triggerSiteDeploy } from "@/lib/github/deploy";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -22,5 +23,7 @@ export async function POST(request: Request) {
   }
 
   const sponsor = await createSponsor(yearId, name.trim());
+  after(() => triggerSiteDeploy(`sponsor ${sponsor.id} created`));
+
   return NextResponse.json(sponsor, { status: 201 });
 }

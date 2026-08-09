@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { verifySession } from "@/lib/auth/dal";
 import {
   changeUserEmail,
@@ -7,6 +7,7 @@ import {
   type UpdatableUserFields,
   type UserRole,
 } from "@/lib/users";
+import { triggerSiteDeploy } from "@/lib/github/deploy";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -83,6 +84,7 @@ export async function PATCH(
   ) as Partial<UpdatableUserFields>;
 
   await updateUserById(id, cleanFields);
+  after(() => triggerSiteDeploy(`team member ${id} updated`));
 
   return NextResponse.json({ success: true });
 }
