@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, KeyboardEvent } from "react";
+import { useState, useRef, ChangeEvent, ClipboardEvent, KeyboardEvent } from "react";
 import styles from "./TagInput.module.css";
 
 interface TagInputProps {
@@ -29,6 +29,50 @@ export function TagInput({ value, onChange, placeholder = "Add tag…", disabled
     } else if (e.key === "Backspace" && !inputValue && value.length > 0) {
       onChange(value.slice(0, -1));
     }
+  }
+
+  function handleInputChange(e: ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value;
+    if (!raw.includes(",")) {
+      setInputValue(raw);
+      return;
+    }
+    const parts = raw.split(",");
+    const last = parts.pop() ?? "";
+    const newTags: string[] = [];
+    for (const part of parts) {
+      const tag = part.trim();
+      if (tag && !value.includes(tag) && !newTags.includes(tag)) {
+        newTags.push(tag);
+      }
+    }
+    if (newTags.length) {
+      onChange([...value, ...newTags]);
+    }
+    setInputValue(last);
+  }
+
+  function handlePaste(e: ClipboardEvent<HTMLInputElement>) {
+    const pasted = e.clipboardData.getData("text");
+    if (!pasted.includes(",")) return;
+    e.preventDefault();
+
+    const input = inputRef.current;
+    const start = input?.selectionStart ?? inputValue.length;
+    const end = input?.selectionEnd ?? inputValue.length;
+    const merged = inputValue.slice(0, start) + pasted + inputValue.slice(end);
+
+    const newTags: string[] = [];
+    for (const part of merged.split(",")) {
+      const tag = part.trim();
+      if (tag && !value.includes(tag) && !newTags.includes(tag)) {
+        newTags.push(tag);
+      }
+    }
+    if (newTags.length) {
+      onChange([...value, ...newTags]);
+    }
+    setInputValue("");
   }
 
   function handleRemove(tag: string) {
@@ -62,8 +106,9 @@ export function TagInput({ value, onChange, placeholder = "Add tag…", disabled
           type="text"
           className={styles.input}
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+          onChange={handleInputChange}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           onBlur={() => { if (inputValue.trim()) addTag(inputValue); }}
           placeholder={value.length === 0 ? placeholder : undefined}
         />
