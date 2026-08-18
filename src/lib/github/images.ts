@@ -174,24 +174,38 @@ function stripDataUrlPrefix(input: string): string {
   return input;
 }
 
-function buildFilename(kind: ImageKind, index: number | undefined): string {
+function extractExtension(dataUrl: string): string {
+  const match = /^data:image\/([a-zA-Z0-9.+-]+);base64,/.exec(dataUrl);
+  if (!match) return "bin";
+  const subtype = match[1].toLowerCase();
+  if (subtype === "jpeg") return "jpg";
+  if (subtype === "svg+xml") return "svg";
+  return subtype;
+}
+
+function buildFilename(
+  kind: ImageKind,
+  index: number | undefined,
+  ext: string,
+): string {
   const ts = Date.now();
   switch (kind) {
     case "logo":
-      return `logo-${ts}.webp`;
+      return `logo-${ts}.${ext}`;
     case "avatar":
-      return `avatar-${ts}.webp`;
+      return `avatar-${ts}.${ext}`;
     case "carousel":
       if (index === undefined) throw new Error("carousel kind requires index");
-      return `carousel-${index}-${ts}.webp`;
+      return `carousel-${index}-${ts}.${ext}`;
     case "testimonial":
       if (index === undefined) throw new Error("testimonial kind requires index");
-      return `testimonial-${index}-${ts}.webp`;
+      return `testimonial-${index}-${ts}.${ext}`;
   }
 }
 
 export async function uploadImage(args: UploadArgs): Promise<string> {
-  const filename = buildFilename(args.kind, args.index);
+  const ext = extractExtension(args.dataUrl);
+  const filename = buildFilename(args.kind, args.index, ext);
   const path = `${args.entity}/${args.entityId}/${filename}`;
   const content = stripDataUrlPrefix(args.dataUrl);
 

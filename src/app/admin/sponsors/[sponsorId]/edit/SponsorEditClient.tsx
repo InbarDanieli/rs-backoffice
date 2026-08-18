@@ -24,36 +24,12 @@ interface SponsorEditClientProps {
   saveEndpoint: string; // e.g. /api/sponsors/[id] or /api/public/[token]
 }
 
-function resizeImage(
-  file: File,
-  maxW: number,
-  maxH: number,
-  quality = 0.9,
-): Promise<string> {
+function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new window.Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const scale = Math.min(maxW / img.width, maxH / img.height, 1);
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        reject(new Error("Canvas unavailable"));
-        return;
-      }
-      ctx.drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL("image/webp", quality));
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Load failed"));
-    };
-    img.src = url;
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Load failed"));
+    reader.readAsDataURL(file);
   });
 }
 
@@ -183,7 +159,7 @@ export function SponsorEditClient({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const dataUrl = await resizeImage(file, 512, 512, 0.9);
+      const dataUrl = await fileToDataUrl(file);
       updateField("logo", dataUrl);
     } catch {
       /* ignore */
@@ -199,7 +175,7 @@ export function SponsorEditClient({
     const results = await Promise.all(
       files
         .slice(0, 8 - (carouselImages.length ?? 0))
-        .map((f) => resizeImage(f, 1280, 720, 0.88)),
+        .map((f) => fileToDataUrl(f)),
     );
     updateField("carouselImages", [...carouselImages, ...results]);
     e.target.value = "";
@@ -220,7 +196,7 @@ export function SponsorEditClient({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const dataUrl = await resizeImage(file, 256, 256, 0.9);
+      const dataUrl = await fileToDataUrl(file);
       updateField(
         "testimonials",
         testimonials.map((t, i) => (i === idx ? { ...t, image: dataUrl } : t)),
