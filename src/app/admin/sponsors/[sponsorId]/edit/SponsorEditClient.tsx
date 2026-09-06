@@ -279,8 +279,6 @@ export function SponsorEditClient({
   }
 
   function removeTestimonial(idx: number) {
-    // Keep at least the minimum of 1 testimonial.
-    if (testimonials.length <= 1) return;
     updateField(
       "testimonials",
       testimonials.filter((_, i) => i !== idx),
@@ -657,7 +655,8 @@ export function SponsorEditClient({
       {/* ── Testimonials ── */}
       <div className={styles.section}>
         <p className={styles.sectionLabel}>
-          Testimonials (1–3 required) <RequiredMark />
+          Testimonials (up to 3){" "}
+          <span className={styles.optional}>(optional)</span>
         </p>
         {testimonials.map((t, idx) => (
           <div
@@ -666,15 +665,13 @@ export function SponsorEditClient({
           >
             <div className={styles.listItemHeader}>
               <span className={styles.listItemNum}>Testimonial {idx + 1}</span>
-              {testimonials.length > 1 && (
-                <button
-                  type="button"
-                  className={styles.removeItemBtn}
-                  onClick={() => removeTestimonial(idx)}
-                >
-                  Remove
-                </button>
-              )}
+              <button
+                type="button"
+                className={styles.removeItemBtn}
+                onClick={() => removeTestimonial(idx)}
+              >
+                Remove
+              </button>
             </div>
             <div className={styles.testimonialAvatar}>
               <button

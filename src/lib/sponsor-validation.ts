@@ -36,7 +36,6 @@ export interface SponsorValidationError {
 export const MAX_CAROUSEL_IMAGES = 8;
 export const MIN_POSITIONS = 2;
 export const MAX_POSITIONS = 8;
-export const MIN_TESTIMONIALS = 1;
 export const MAX_TESTIMONIALS = 3;
 
 /**
@@ -115,12 +114,7 @@ export function validateSponsorFields(
     }
   });
 
-  if (testimonials.length < MIN_TESTIMONIALS) {
-    errors.push({
-      field: "testimonials",
-      message: `Please add at least ${MIN_TESTIMONIALS} Testimonial.`,
-    });
-  } else if (testimonials.length > MAX_TESTIMONIALS) {
+  if (testimonials.length > MAX_TESTIMONIALS) {
     errors.push({
       field: "testimonials",
       message: `Please add no more than ${MAX_TESTIMONIALS} Testimonials.`,
