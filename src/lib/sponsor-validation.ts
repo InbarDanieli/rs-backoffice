@@ -18,7 +18,12 @@ export interface SponsorValidationInput {
   carouselImages?: string[];
   techStack?: string[];
   positions?: { name?: string; location?: string; link?: string }[];
-  testimonials?: { authorName?: string; testimonial?: string }[];
+  testimonials?: {
+    authorName?: string;
+    title?: string;
+    testimonial?: string;
+    image?: string;
+  }[];
 }
 
 export interface SponsorValidationError {
@@ -31,6 +36,7 @@ export interface SponsorValidationError {
 export const MAX_CAROUSEL_IMAGES = 8;
 export const MIN_POSITIONS = 2;
 export const MAX_POSITIONS = 8;
+export const MIN_TESTIMONIALS = 1;
 export const MAX_TESTIMONIALS = 3;
 
 /**
@@ -109,18 +115,27 @@ export function validateSponsorFields(
     }
   });
 
-  // Testimonials are optional, but a half-filled one must be completed or removed.
-  if (testimonials.length > MAX_TESTIMONIALS) {
+  if (testimonials.length < MIN_TESTIMONIALS) {
+    errors.push({
+      field: "testimonials",
+      message: `Please add at least ${MIN_TESTIMONIALS} Testimonial.`,
+    });
+  } else if (testimonials.length > MAX_TESTIMONIALS) {
     errors.push({
       field: "testimonials",
       message: `Please add no more than ${MAX_TESTIMONIALS} Testimonials.`,
     });
   }
   testimonials.forEach((t, i) => {
-    if (!(t.authorName ?? "").trim() || !(t.testimonial ?? "").trim()) {
+    if (
+      !(t.authorName ?? "").trim() ||
+      !(t.title ?? "").trim() ||
+      !(t.testimonial ?? "").trim() ||
+      !(t.image ?? "").trim()
+    ) {
       errors.push({
         field: `testimonial-${i}`,
-        message: `Testimonial ${i + 1}: please add the author name and testimonial, or remove it.`,
+        message: `Testimonial ${i + 1}: please fill in the photo, author name, title, and testimonial, or remove it.`,
       });
     }
   });

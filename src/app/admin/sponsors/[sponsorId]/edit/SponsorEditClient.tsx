@@ -24,12 +24,40 @@ interface SponsorEditClientProps {
   saveEndpoint: string; // e.g. /api/sponsors/[id] or /api/public/[token]
 }
 
-function fileToDataUrl(file: File): Promise<string> {
+// Resizes/compresses on the client before the image is sent to the server —
+// uncompressed phone photos (especially several carousel images at once)
+// easily exceed Vercel's 4.5MB serverless function request body limit and
+// the save fails with a 413 before it ever reaches the GitHub upload code.
+function resizeImage(
+  file: File,
+  maxW: number,
+  maxH: number,
+  quality = 0.9,
+): Promise<string> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("Load failed"));
-    reader.readAsDataURL(file);
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Canvas unavailable"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/webp", quality));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Load failed"));
+    };
+    img.src = url;
   });
 }
 
@@ -159,7 +187,7 @@ export function SponsorEditClient({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const dataUrl = await fileToDataUrl(file);
+      const dataUrl = await resizeImage(file, 512, 512, 0.9);
       updateField("logo", dataUrl);
     } catch {
       /* ignore */
@@ -175,7 +203,7 @@ export function SponsorEditClient({
     const results = await Promise.all(
       files
         .slice(0, 8 - (carouselImages.length ?? 0))
-        .map((f) => fileToDataUrl(f)),
+        .map((f) => resizeImage(f, 1280, 720, 0.88)),
     );
     updateField("carouselImages", [...carouselImages, ...results]);
     e.target.value = "";
@@ -196,7 +224,7 @@ export function SponsorEditClient({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const dataUrl = await fileToDataUrl(file);
+      const dataUrl = await resizeImage(file, 256, 256, 0.9);
       updateField(
         "testimonials",
         testimonials.map((t, i) => (i === idx ? { ...t, image: dataUrl } : t)),
@@ -251,6 +279,8 @@ export function SponsorEditClient({
   }
 
   function removeTestimonial(idx: number) {
+    // Keep at least the minimum of 1 testimonial.
+    if (testimonials.length <= 1) return;
     updateField(
       "testimonials",
       testimonials.filter((_, i) => i !== idx),
@@ -627,8 +657,7 @@ export function SponsorEditClient({
       {/* ── Testimonials ── */}
       <div className={styles.section}>
         <p className={styles.sectionLabel}>
-          Testimonials (up to 3){" "}
-          <span className={styles.optional}>(optional)</span>
+          Testimonials (1–3 required) <RequiredMark />
         </p>
         {testimonials.map((t, idx) => (
           <div
@@ -637,18 +666,20 @@ export function SponsorEditClient({
           >
             <div className={styles.listItemHeader}>
               <span className={styles.listItemNum}>Testimonial {idx + 1}</span>
-              <button
-                type="button"
-                className={styles.removeItemBtn}
-                onClick={() => removeTestimonial(idx)}
-              >
-                Remove
-              </button>
+              {testimonials.length > 1 && (
+                <button
+                  type="button"
+                  className={styles.removeItemBtn}
+                  onClick={() => removeTestimonial(idx)}
+                >
+                  Remove
+                </button>
+              )}
             </div>
             <div className={styles.testimonialAvatar}>
               <button
                 type="button"
-                className={styles.testimonialAvatarPreview}
+                className={`${styles.testimonialAvatarPreview} ${invalidFields[`testimonial-${idx}`] && !t.image ? styles.inputError : ""}`}
                 onClick={() => testimonialInputRefs.current[idx]?.click()}
                 aria-label="Change testimonial photo"
               >
@@ -674,7 +705,9 @@ export function SponsorEditClient({
                 className={`${styles.fieldGrid} ${styles.testimonialFields}`}
               >
                 <div className={styles.field}>
-                  <label className={styles.label}>Author Name</label>
+                  <label className={styles.label}>
+                    Author Name <RequiredMark />
+                  </label>
                   <input
                     type="text"
                     className={styles.input}
@@ -685,7 +718,9 @@ export function SponsorEditClient({
                   />
                 </div>
                 <div className={styles.field}>
-                  <label className={styles.label}>Title / Role</label>
+                  <label className={styles.label}>
+                    Title / Role <RequiredMark />
+                  </label>
                   <input
                     type="text"
                     className={styles.input}
@@ -696,7 +731,9 @@ export function SponsorEditClient({
                   />
                 </div>
                 <div className={`${styles.field} ${styles.fieldFull}`}>
-                  <label className={styles.label}>Testimonial</label>
+                  <label className={styles.label}>
+                    Testimonial <RequiredMark />
+                  </label>
                   <textarea
                     className={styles.textarea}
                     value={t.testimonial}
