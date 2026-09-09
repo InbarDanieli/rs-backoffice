@@ -280,7 +280,7 @@ export function MembersClient({ yearId, currentUserId }: MembersClientProps) {
             >
               {addOpen ? <CloseIcon /> : <PlusIcon />}
               <span className={styles.toolbarBtnLabel}>
-                {addOpen ? "Close" : "Add member"}
+                {addOpen ? "Close" : "Add members"}
               </span>
             </button>
           )}

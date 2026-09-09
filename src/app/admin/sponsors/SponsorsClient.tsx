@@ -3,9 +3,11 @@
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { PublicLinkModal } from "@/components/ui/PublicLinkModal";
 import { Select } from "@/components/ui/Select";
+import { applySort } from "@/lib/sort";
 import { type Sponsor } from "@/lib/sponsors";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_SPONSOR_SORT, SPONSOR_SORT_OPTIONS } from "./sponsorSortOptions";
 import styles from "./sponsors.module.css";
 
 interface SponsorsClientProps {
@@ -73,6 +75,25 @@ function LinkIcon() {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
 export function SponsorsClient({ yearId }: SponsorsClientProps) {
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,6 +106,16 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
     null,
   );
   const [savingRoleForId, setSavingRoleForId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState(DEFAULT_SPONSOR_SORT);
+  const [search, setSearch] = useState("");
+
+  const filteredSponsors = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const matching = query
+      ? sponsors.filter((s) => s.name.toLowerCase().includes(query))
+      : sponsors;
+    return applySort(matching, SPONSOR_SORT_OPTIONS, sortBy);
+  }, [sponsors, sortBy, search]);
 
   useEffect(() => {
     setLoading(true);
@@ -161,7 +192,7 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
           <input
             type="text"
             className={styles.nameInput}
-            placeholder="Company name…"
+            placeholder="Add sponsor by company name"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             disabled={adding}
@@ -177,6 +208,33 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
 
         {error && <p className={styles.errorMsg}>{error}</p>}
 
+        {!loading && sponsors.length > 0 && (
+          <div className={styles.toolbar}>
+            <div className={styles.searchWrap}>
+              <SearchIcon />
+              <input
+                type="text"
+                className={styles.searchInput}
+                placeholder="Search sponsors…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className={styles.sortWrap}>
+              <span className={styles.toolbarLabel}>Sort by</span>
+              <Select
+                width={190}
+                options={SPONSOR_SORT_OPTIONS.map(({ value, label }) => ({
+                  value,
+                  label,
+                }))}
+                value={sortBy}
+                onChange={setSortBy}
+              />
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className={styles.loadingState}>
             <span className={styles.spinner} aria-hidden="true" />
@@ -184,9 +242,11 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
           </div>
         ) : sponsors.length === 0 ? (
           <p className={styles.emptyHint}>No sponsors yet. Add one above.</p>
+        ) : filteredSponsors.length === 0 ? (
+          <p className={styles.emptyHint}>No sponsors match &ldquo;{search.trim()}&rdquo;.</p>
         ) : (
           <ul className={styles.sponsorList}>
-            {sponsors.map((sponsor) => (
+            {filteredSponsors.map((sponsor) => (
               <li key={sponsor.id} className={styles.sponsorRow}>
                 <div className={styles.sponsorAvatar} aria-hidden="true">
                   {sponsor.name.charAt(0)}
@@ -242,7 +302,9 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
 
         {!loading && sponsors.length > 0 && (
           <p className={styles.hint}>
-            {sponsors.length} sponsor{sponsors.length !== 1 ? "s" : ""}
+            {search.trim()
+              ? `${filteredSponsors.length} of ${sponsors.length} sponsor${sponsors.length !== 1 ? "s" : ""}`
+              : `${sponsors.length} sponsor${sponsors.length !== 1 ? "s" : ""}`}
           </p>
         )}
       </div>
