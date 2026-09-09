@@ -135,7 +135,7 @@ export function PublicLinkModal({
           )}
 
           <div className={styles.ttlRow}>
-            <label className={styles.ttlLabel} htmlFor="ttl-input">TTL (days)</label>
+            <label className={styles.ttlLabel} htmlFor="ttl-input">Expiration time (days)</label>
             <input
               id="ttl-input"
               type="number"
