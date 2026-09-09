@@ -18,7 +18,7 @@ export function AdminPageLayout({
   subtitle,
   backLink,
   actions,
-  maxWidth = "60rem",
+  maxWidth = "64rem",
 }: AdminPageLayoutProps) {
   return (
     <div className={styles.page}>

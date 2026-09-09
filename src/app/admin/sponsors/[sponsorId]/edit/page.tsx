@@ -103,7 +103,6 @@ export default async function SponsorEditPage({ params }: PageProps) {
       title={sponsor.name}
       subtitle="Edit sponsor profile"
       backLink={{ href: "/admin/sponsors", label: "Sponsors" }}
-      maxWidth="64rem"
     >
       <SponsorEditClient
         sponsor={sponsor}

@@ -54,7 +54,7 @@ export default async function SponsorsPage() {
       sidebar={<AdminSidebar navItems={navItems} years={years} activeYearId={activeYearId} canManageYears={isAdmin(user.role)} />}
       title="Sponsors"
       subtitle={subtitle}
-      maxWidth="52rem"
+      maxWidth="56rem"
     >
       {activeYear ? (
         <SponsorsClient yearId={activeYear.id} />

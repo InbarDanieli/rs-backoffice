@@ -72,7 +72,6 @@ export default async function MemberViewPage({ params }: PageProps) {
           Edit Profile
         </Link>
       }
-      maxWidth="64rem"
     >
           <div className={styles.grid}>
             {/* ── Profile card ── */}

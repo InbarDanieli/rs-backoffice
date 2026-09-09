@@ -101,7 +101,6 @@ export default async function MemberEditPage({ params }: PageProps) {
       backLink={{ href: "/admin/members", label: "Team Members" }}
       title={`Edit: ${user.name || user.email}`}
       subtitle="Update this member's profile information and role."
-      maxWidth="64rem"
     >
       <MemberEditClient
         userId={userId}
