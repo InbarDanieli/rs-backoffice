@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ProfileCard } from "./ProfileCard";
+import { DeployButton } from "./DeployButton";
 import { InfoForm, type InfoFormValues } from "./InfoForm";
 import { useUnsavedChangesWarning } from "@/lib/hooks/useUnsavedChangesWarning";
 import styles from "./ProfileSection.module.css";
@@ -31,14 +32,20 @@ export function ProfileSection({
 
   return (
     <div className={styles.grid}>
-      <div className={styles.profileCard}>
-        <ProfileCard
-          name={name}
-          email={email}
-          picture={picture}
-          role={role}
-          onImageChange={setPicture}
-        />
+      <div className={styles.leftColumn}>
+        <div className={styles.profileCard}>
+          <ProfileCard
+            name={name}
+            email={email}
+            picture={picture}
+            role={role}
+            onImageChange={setPicture}
+          />
+        </div>
+
+        <div className={styles.deployAction}>
+          <DeployButton />
+        </div>
       </div>
 
       <div className={styles.formCard}>

@@ -22,6 +22,8 @@ interface ConfirmModalProps {
   icon?: React.ReactNode;
   /** When true, styles the confirm button in red. */
   danger?: boolean;
+  /** When true, hides the cancel button (e.g. an acknowledgement/result state). */
+  hideCancel?: boolean;
 }
 
 export function ConfirmModal({
@@ -37,6 +39,7 @@ export function ConfirmModal({
   loading = false,
   icon,
   danger = false,
+  hideCancel = false,
 }: ConfirmModalProps) {
   const [mounted, setMounted] = useState(() => typeof window !== "undefined");
   const [typed, setTyped] = useState("");
@@ -87,9 +90,11 @@ export function ConfirmModal({
         </div>
 
         <div className={styles.actions}>
-          <button type="button" className={styles.cancelBtn} onClick={onClose}>
-            {cancelLabel}
-          </button>
+          {!hideCancel && (
+            <button type="button" className={styles.cancelBtn} onClick={onClose}>
+              {cancelLabel}
+            </button>
+          )}
           <button
             type="button"
             className={`${styles.confirmBtn} ${danger ? styles.confirmBtnDanger : ""}`}

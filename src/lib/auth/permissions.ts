@@ -143,6 +143,7 @@ export const ROUTE_PERMISSIONS: Record<string, RouteConfig> = {
     redirectToLogin: false,
     check: canReadUser,
   },
+  "/api/deploy": { roles: "any-authenticated", redirectToLogin: false },
   // ---- Explicitly public APIs ----
   "/api/auth/google": { roles: "public" },
   "/api/auth/callback/google": { roles: "public" },

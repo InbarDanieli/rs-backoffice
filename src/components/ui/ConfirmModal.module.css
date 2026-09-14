@@ -58,6 +58,7 @@
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
   line-height: var(--leading-relaxed);
+  white-space: pre-line;
 }
 
 .label {

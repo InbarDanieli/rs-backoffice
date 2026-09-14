@@ -5,12 +5,23 @@
   align-items: start;
 }
 
+.leftColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
 .profileCard {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
   padding: var(--space-8) var(--space-6);
+  display: flex;
+  justify-content: center;
+}
+
+.deployAction {
   display: flex;
   justify-content: center;
 }
