@@ -335,6 +335,13 @@
   .sortWrap > button {
     flex: 1;
   }
+  .sortWrap {
+    flex-wrap: wrap;
+  }
+  .sortWrap > .downloadBtn {
+    flex: 1 0 100%;
+    justify-content: center;
+  }
 
   /* Stack sponsor rows into a card on mobile */
   .sponsorRow {
