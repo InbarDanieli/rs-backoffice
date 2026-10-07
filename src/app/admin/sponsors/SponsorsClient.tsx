@@ -75,6 +75,26 @@ function LinkIcon() {
   );
 }
 
+function DownloadIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
 function SearchIcon() {
   return (
     <svg
@@ -108,6 +128,7 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
   const [savingRoleForId, setSavingRoleForId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState(DEFAULT_SPONSOR_SORT);
   const [search, setSearch] = useState("");
+  const [downloadingLogos, setDownloadingLogos] = useState(false);
 
   const filteredSponsors = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -164,6 +185,35 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
       setPendingDeleteId(null);
     }
   }
+
+  async function handleDownloadLogos() {
+    setDownloadingLogos(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/sponsors/logos?yearId=${yearId}`);
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "Failed to download logos.");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "sponsor-logos.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+      const skipped = Number(res.headers.get("X-Logos-Skipped") ?? 0);
+      if (skipped > 0) {
+        setError(`${skipped} logo${skipped !== 1 ? "s" : ""} could not be downloaded.`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to download logos.");
+    } finally {
+      setDownloadingLogos(false);
+    }
+  }
+
+  const hasLogos = sponsors.some((s) => s.logo);
 
   const pendingDeleteSponsor = sponsors.find((s) => s.id === pendingDeleteId);
 
@@ -231,6 +281,16 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
                 value={sortBy}
                 onChange={setSortBy}
               />
+              <button
+                type="button"
+                className={`${styles.actionBtn} ${styles.downloadBtn}`}
+                onClick={handleDownloadLogos}
+                disabled={downloadingLogos || !hasLogos}
+                title={hasLogos ? "Download all logos as a zip" : "No logos uploaded yet"}
+              >
+                <DownloadIcon />
+                &nbsp;{downloadingLogos ? "Downloading…" : "Download logos"}
+              </button>
             </div>
           </div>
         )}

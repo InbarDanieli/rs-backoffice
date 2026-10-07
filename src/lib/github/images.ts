@@ -258,3 +258,45 @@ export async function deleteImage(rawUrl: string): Promise<void> {
     }
   });
 }
+
+const MIME_EXTENSIONS: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/svg+xml": "svg",
+};
+
+/**
+ * Downloads an image stored as a data URL, an owned raw URL (fetched through
+ * the authenticated contents API so private asset repos work), or any other
+ * http(s) URL. Returns the bytes plus a best-guess file extension.
+ */
+export async function downloadImage(
+  value: string,
+): Promise<{ data: Uint8Array; ext: string }> {
+  if (isDataUrl(value)) {
+    return {
+      data: new Uint8Array(Buffer.from(stripDataUrlPrefix(value), "base64")),
+      ext: extractExtension(value),
+    };
+  }
+
+  const path = pathFromRawUrl(value);
+  const res = path
+    ? await retryOnTransient(() =>
+        apiFetch(
+          `/repos/${owner}/${repo}/contents/${encodePath(path)}?ref=${encodeURIComponent(branch)}`,
+          { headers: { Accept: "application/vnd.github.raw" } },
+        ),
+      )
+    : await fetch(value);
+  if (!res.ok) throw new Error(`Failed to download image: ${res.status}`);
+
+  const urlExt = /\.([a-zA-Z0-9]+)$/.exec(new URL(value).pathname)?.[1];
+  const mime = res.headers.get("content-type")?.split(";")[0].trim() ?? "";
+  return {
+    data: new Uint8Array(await res.arrayBuffer()),
+    ext: urlExt?.toLowerCase() ?? MIME_EXTENSIONS[mime] ?? "bin",
+  };
+}

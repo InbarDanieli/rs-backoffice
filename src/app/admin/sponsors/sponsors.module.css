@@ -140,6 +140,16 @@
   flex-shrink: 0;
 }
 
+.downloadBtn {
+  height: 2.25rem;
+  font-size: var(--text-sm);
+}
+
+.downloadBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .toolbarLabel {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
