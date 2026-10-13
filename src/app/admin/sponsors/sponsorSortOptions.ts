@@ -5,10 +5,13 @@ function byName(a: Sponsor, b: Sponsor): number {
   return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
 }
 
+/** Sponsors that were never updated sort as the oldest. */
+function updatedTime(s: Sponsor): number {
+  return s.updated ? new Date(s.updatedAt).getTime() : 0;
+}
+
 function byUpdatedAt(a: Sponsor, b: Sponsor): number {
-  return a.updated
-    ? new Date(a.updatedAt).getTime()
-    : 0 - (b.updated ? new Date(b.updatedAt).getTime() : 0);
+  return updatedTime(a) - updatedTime(b);
 }
 
 // Add a new entry here to add a new sort option — no other code changes needed.
