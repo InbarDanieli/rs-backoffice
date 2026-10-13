@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFileSync } from "fs";
-import { join } from "path";
 import { createSession } from "@/lib/session";
 import { upsertUser } from "@/lib/users";
 import { findDefaultYear } from "@/lib/years";
+import { EMAILS } from "@/lib/share/emails";
 
 interface GoogleTokenResponse {
   access_token: string;
@@ -16,18 +15,6 @@ interface GoogleUserInfo {
   name: string;
   picture: string;
   verified_email: boolean;
-}
-
-/** Fallback for bootstrap: read allowed-emails.json when no year exists yet. */
-function getBootstrapEmails(): string[] {
-  try {
-    const filePath = join(process.cwd(), "data", "allowed-emails.json");
-    const file = readFileSync(filePath, "utf-8");
-    const json = JSON.parse(file) as { emails: string[] };
-    return json.emails.map((e) => e.toLowerCase());
-  } catch {
-    return [];
-  }
 }
 
 /**
@@ -101,8 +88,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const normalizedEmail = userInfo.email.toLowerCase();
 
-  // Check access via the default year's member list; fall back to allowed-emails.json
-  // if no year exists yet (initial setup bootstrap).
+  // Check access via the default year's member list; fall back to allowed emails if no year exists yet.
   const defaultYear = await findDefaultYear();
   let isAllowed = false;
   let activeYearId: string | undefined;
@@ -111,7 +97,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     isAllowed = defaultYear.memberEmails.includes(normalizedEmail);
     if (isAllowed) activeYearId = defaultYear.id;
   } else {
-    isAllowed = getBootstrapEmails().includes(normalizedEmail);
+    isAllowed = Object.values(EMAILS.default).includes(normalizedEmail);
   }
 
   if (!isAllowed) {
