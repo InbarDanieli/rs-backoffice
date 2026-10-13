@@ -1,6 +1,11 @@
 "use client";
 
-import { TagInput } from "@/components/ui/TagInput";
+import {
+  getSplitParts,
+  SplitIcon,
+  splitTagInList,
+  TagInput,
+} from "@/components/ui/TagInput";
 import {
   POSITION_FIELDS,
   SPONSOR_BASIC_FIELDS,
@@ -16,7 +21,11 @@ import { useRef, useState } from "react";
 import styles from "./edit.module.css";
 import { Popup } from "@/components/ui/Popup";
 import { useUnsavedChangesWarning } from "@/lib/hooks/useUnsavedChangesWarning";
-import { validateSponsorFields } from "@/lib/sponsor-validation";
+import {
+  MAX_TECH_TAG_LENGTH,
+  validateSponsorFields,
+} from "@/lib/sponsor-validation";
+import { TECH_SUGGESTIONS } from "@/lib/tech-suggestions";
 
 interface SponsorEditClientProps {
   sponsor: Sponsor;
@@ -181,6 +190,9 @@ export function SponsorEditClient({
   const carouselInputRef = useRef<HTMLInputElement>(null);
   const testimonialInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const techStack = activeDefaultValues.techStack ?? [];
+  const longTechTags = techStack.filter(
+    (tag) => tag.length > MAX_TECH_TAG_LENGTH,
+  );
 
   // ── Logo ────────────────────────────────────────────────────────────────────
   async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -582,12 +594,59 @@ export function SponsorEditClient({
             onChange={(tags) => {
               updateField("techStack", tags);
             }}
-            placeholder="Type a technology and press Enter or comma…"
+            placeholder="e.g. React — then press Enter"
+            warnLength={MAX_TECH_TAG_LENGTH}
+            suggestions={TECH_SUGGESTIONS}
           />
         </div>
-        <p className={styles.carouselHint}>
-          Add at least one technology your company uses.
-        </p>
+        {longTechTags.length > 0 && (
+          <div className={styles.tagWarningBox} role="alert">
+            ⚠ These entries look like several technologies combined into one,
+            so the profile can&apos;t be saved yet. Click <strong>Split</strong>{" "}
+            on each one, or remove it (×) and add each technology on its own:
+            <ul>
+              {longTechTags.map((tag) => {
+                const parts = getSplitParts(tag, true);
+                return (
+                  <li key={tag} className={styles.tagWarningItem}>
+                    <span>{tag}</span>
+                    {parts && (
+                      <button
+                        type="button"
+                        className={styles.tagWarningSplitBtn}
+                        onClick={() =>
+                          updateField(
+                            "techStack",
+                            splitTagInList(techStack, tag, parts),
+                          )
+                        }
+                        title={`Split into: ${parts.join(", ")}`}
+                      >
+                        <SplitIcon />
+                        Split into {parts.length} tags
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+        <div className={styles.tagHelp}>
+          <span>
+            Add <strong>one technology per tag</strong>: type its name, then
+            press <strong>Enter</strong> or <strong>comma</strong>.
+          </span>
+          <span>
+            ✓ Good: <strong>React</strong>, <strong>Node.js</strong>,{" "}
+            <strong>AWS</strong>, <strong>Python</strong>
+            <br />✗ Avoid: <strong>React / JavaScript / TypeScript</strong>
+          </span>
+          <span>
+            Tip: pasting a list separated by commas or new lines adds each item
+            separately.
+          </span>
+        </div>
       </div>
 
       {/* ── Open Positions ── */}

@@ -536,3 +536,70 @@
     opacity: 1;
   }
 }
+
+/* ── Tech stack help & warning ── */
+.tagHelp {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tagHelp strong {
+  font-weight: var(--weight-semibold);
+}
+
+.tagWarningBox {
+  font-size: var(--text-xs);
+  color: #92400e;
+  background-color: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.tagWarningBox ul {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+}
+
+.tagWarningItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+.tagWarningSplitBtn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #fff;
+  color: #b45309;
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius-sm);
+  padding: 3px var(--space-2);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.tagWarningSplitBtn:hover {
+  background-color: #d97706;
+  border-color: #d97706;
+  color: #fff;
+}
+
+.tagWarningSplitBtn:focus-visible {
+  outline: 2px solid #d97706;
+  outline-offset: 2px;
+}

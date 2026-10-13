@@ -37,6 +37,11 @@ export const MAX_CAROUSEL_IMAGES = 8;
 export const MIN_POSITIONS = 2;
 export const MAX_POSITIONS = 8;
 export const MAX_TESTIMONIALS = 3;
+/**
+ * A single technology name is rarely this long — longer tags are usually a
+ * whole list typed or pasted as one entry, so they block saving.
+ */
+export const MAX_TECH_TAG_LENGTH = 50;
 
 /**
  * Returns the list of problems with a sponsor profile. An empty array means the
@@ -92,6 +97,16 @@ export function validateSponsorFields(
       field: "techStack",
       message: "Please add at least one technology to the Technology Stack.",
     });
+  }
+
+  for (const tag of techStack) {
+    if (tag.length > MAX_TECH_TAG_LENGTH) {
+      const preview = `${tag.slice(0, 40)}…`;
+      errors.push({
+        field: "techStack",
+        message: `Technology Stack: "${preview}" looks like several technologies in one tag (max ${MAX_TECH_TAG_LENGTH} characters). Use its Split button, or remove it and add each technology separately.`,
+      });
+    }
   }
 
   if (positions.length < MIN_POSITIONS) {
