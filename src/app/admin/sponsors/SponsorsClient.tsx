@@ -5,6 +5,7 @@ import { PublicLinkModal } from "@/components/ui/PublicLinkModal";
 import { Select } from "@/components/ui/Select";
 import { applySort } from "@/lib/sort";
 import { type Sponsor } from "@/lib/sponsors";
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_SPONSOR_SORT, SPONSOR_SORT_OPTIONS } from "./sponsorSortOptions";
@@ -309,7 +310,18 @@ export function SponsorsClient({ yearId }: SponsorsClientProps) {
             {filteredSponsors.map((sponsor) => (
               <li key={sponsor.id} className={styles.sponsorRow}>
                 <div className={styles.sponsorAvatar} aria-hidden="true">
-                  {sponsor.name.charAt(0)}
+                  {sponsor.logo ? (
+                    <Image
+                      src={sponsor.logo}
+                      alt=""
+                      width={36}
+                      height={36}
+                      className={styles.sponsorLogo}
+                      unoptimized={!sponsor.logo.startsWith("http")}
+                    />
+                  ) : (
+                    sponsor.name.charAt(0)
+                  )}
                 </div>
                 <span className={styles.sponsorName}>{sponsor.name}</span>
                 <span
