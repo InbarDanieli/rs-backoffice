@@ -41,7 +41,7 @@ export const MAX_TESTIMONIALS = 3;
  * A single technology name is rarely this long — longer tags are usually a
  * whole list typed or pasted as one entry, so they block saving.
  */
-export const MAX_TECH_TAG_LENGTH = 50;
+export const MAX_TECH_TAG_LENGTH = 30;
 
 /**
  * Returns the list of problems with a sponsor profile. An empty array means the
