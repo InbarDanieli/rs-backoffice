@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth/dal";
 import { listYears, createYear } from "@/lib/years";
+import { actorFromUser, logAudit } from "@/lib/audit";
 
 export async function GET(): Promise<NextResponse> {
   const years = await listYears();
@@ -29,5 +30,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const year = await createYear({ name, isDefault, userEmail: user.email });
+  await logAudit({
+    action: "year.created",
+    actor: actorFromUser(user),
+    target: { type: "year", id: year.id, label: year.name },
+    meta: { isDefault },
+  });
   return NextResponse.json(year, { status: 201 });
 }

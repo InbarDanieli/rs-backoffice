@@ -8,6 +8,7 @@ import {
 } from "@/lib/years";
 import { addYearToUser, removeYearFromUser, findUsersByEmails } from "@/lib/users";
 import { triggerSiteDeploy } from "@/lib/github/deploy";
+import { actorFromUser, logAudit } from "@/lib/audit";
 
 export interface MemberEntry {
   email: string;
@@ -64,7 +65,7 @@ export async function POST(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  await verifySession();
+  const { user: actor } = await verifySession();
 
   const { id } = await params;
   const year = await findYearById(id);
@@ -133,6 +134,17 @@ export async function POST(
       ...(invalidInputs.length > 0 ? { invalidInputs } : {}),
     };
 
+    // Only record emails that weren't already members (re-adds are no-ops).
+    const existingEmails = new Set(year.memberEmails.map((e) => e.toLowerCase()));
+    const addedEmails = normalized.filter((e) => !existingEmails.has(e));
+    if (addedEmails.length > 0) {
+      await logAudit({
+        action: "year.members_bulk_added",
+        actor: actorFromUser(actor),
+        target: { type: "year", id, label: year.name },
+        meta: { count: addedEmails.length, emails: addedEmails },
+      });
+    }
     after(() => triggerSiteDeploy(`${normalized.length} member(s) added to year ${id}`));
 
     return NextResponse.json(payload, { status: 201 });
@@ -157,6 +169,14 @@ export async function POST(
     role: user?.role,
   };
 
+  if (!year.memberEmails.some((e) => e.toLowerCase() === email)) {
+    await logAudit({
+      action: "year.member_added",
+      actor: actorFromUser(actor),
+      target: { type: "year", id, label: year.name },
+      meta: { email },
+    });
+  }
   after(() => triggerSiteDeploy(`member ${email} added to year ${id}`));
 
   return NextResponse.json(entry, { status: 201 });
@@ -166,7 +186,7 @@ export async function PUT(
   request: NextRequest,
   { params }: RouteParams,
 ): Promise<NextResponse> {
-  await verifySession();
+  const { user: actor } = await verifySession();
 
   const { id } = await params;
 
@@ -192,6 +212,13 @@ export async function PUT(
     return NextResponse.json({ error: result.reason }, { status });
   }
 
+  const year = await findYearById(id);
+  await logAudit({
+    action: "year.members_reordered",
+    actor: actorFromUser(actor),
+    target: { type: "year", id, label: year?.name ?? id },
+    meta: { count: emails.length },
+  });
   after(() => triggerSiteDeploy(`members reordered for year ${id}`));
 
   return NextResponse.json({ success: true });
@@ -201,7 +228,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  await verifySession();
+  const { user: actor } = await verifySession();
 
   const { id } = await params;
   const year = await findYearById(id);
@@ -223,6 +250,14 @@ export async function DELETE(
 
   await removeMemberFromYear(id, email);
   await removeYearFromUser(email, id);
+  if (year.memberEmails.some((e) => e.toLowerCase() === email)) {
+    await logAudit({
+      action: "year.member_removed",
+      actor: actorFromUser(actor),
+      target: { type: "year", id, label: year.name },
+      meta: { email },
+    });
+  }
   after(() => triggerSiteDeploy(`member ${email} removed from year ${id}`));
 
   return NextResponse.json({ success: true });

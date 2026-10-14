@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth/dal";
-import { findOrCreateByEmail, findUsersByEmailsOrdered } from "@/lib/users";
+import { findOrCreateByEmail, findUserByEmail, findUsersByEmailsOrdered } from "@/lib/users";
+import { actorFromUser, logAudit } from "@/lib/audit";
 import { findYearById } from "@/lib/years";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 }
 
 export async function POST(request: Request) {
-  await verifySession();
+  const { user: actor } = await verifySession();
 
   const body = (await request.json()) as { email?: string };
   const email = body.email?.trim().toLowerCase();
@@ -31,6 +32,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "email is required" }, { status: 400 });
   }
 
+  const existing = await findUserByEmail(email);
   const user = await findOrCreateByEmail(email);
+  if (!existing) {
+    await logAudit({
+      action: "user.created",
+      actor: actorFromUser(actor),
+      target: { type: "user", id: user.id, label: user.email },
+    });
+  }
   return NextResponse.json({ userId: user.id }, { status: 201 });
 }

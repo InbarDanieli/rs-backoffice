@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth/dal";
 import { triggerSiteDeploy } from "@/lib/github/deploy";
+import { actorFromUser, logAudit } from "@/lib/audit";
 
 export async function POST(): Promise<NextResponse> {
   const { user } = await verifySession();
@@ -9,6 +10,7 @@ export async function POST(): Promise<NextResponse> {
   // the deploy actually dispatched. triggerSiteDeploy already cancels any
   // queued/in-progress run before dispatching the new one.
   const dispatched = await triggerSiteDeploy(`manual deploy triggered by ${user.email}`);
+  await logAudit({ action: "deploy.triggered", actor: actorFromUser(user), meta: { dispatched } });
 
   if (!dispatched) {
     return NextResponse.json(

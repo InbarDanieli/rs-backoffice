@@ -8,6 +8,7 @@ import {
   type UserRole,
 } from "@/lib/users";
 import { triggerSiteDeploy } from "@/lib/github/deploy";
+import { actorFromUser, diffFields, logAudit, pickFields } from "@/lib/audit";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -49,10 +50,23 @@ export async function PATCH(
 
   const raw = body as Record<string, unknown>;
 
+  const before = await findUserById(id);
+  if (!before) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  const auditActor = actorFromUser(actor);
+
   if (actor.role === "admin" && typeof raw.email === "string") {
     const result = await changeUserEmail(id, raw.email);
     if (!result.ok) {
       return NextResponse.json({ error: result.reason }, { status: 400 });
+    }
+    const newEmail = raw.email.trim().toLowerCase();
+    if (newEmail !== before.email.toLowerCase()) {
+      await logAudit({
+        action: "user.email_changed",
+        actor: auditActor,
+        target: { type: "user", id, label: newEmail },
+        changes: [{ field: "email", before: before.email, after: newEmail }],
+      });
     }
   }
 
@@ -84,6 +98,27 @@ export async function PATCH(
   ) as Partial<UpdatableUserFields>;
 
   await updateUserById(id, cleanFields);
+
+  const { role: newRole, ...profileFields } = cleanFields;
+  const stored = (await findUserById(id)) ?? before;
+  const targetLabel = stored.name || stored.email;
+  if (newRole && newRole !== before.role) {
+    await logAudit({
+      action: "user.role_changed",
+      actor: auditActor,
+      target: { type: "user", id, label: targetLabel },
+      changes: [{ field: "role", before: before.role, after: newRole }],
+    });
+  }
+  const profileChanges = diffFields(before, pickFields(stored, Object.keys(profileFields)));
+  if (profileChanges.length > 0) {
+    await logAudit({
+      action: "user.updated",
+      actor: auditActor,
+      target: { type: "user", id, label: targetLabel },
+      changes: profileChanges,
+    });
+  }
   after(() => triggerSiteDeploy(`team member ${id} updated`));
 
   return NextResponse.json({ success: true });

@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { verifySession } from "@/lib/auth/dal";
 import { listSponsorsByYear, createSponsor } from "@/lib/sponsors";
 import { triggerSiteDeploy } from "@/lib/github/deploy";
+import { actorFromUser, logAudit } from "@/lib/audit";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  await verifySession();
+  const { user } = await verifySession();
 
   const body = (await request.json()) as { yearId?: string; name?: string };
   const { yearId, name } = body;
@@ -23,6 +24,12 @@ export async function POST(request: Request) {
   }
 
   const sponsor = await createSponsor(yearId, name.trim());
+  await logAudit({
+    action: "sponsor.created",
+    actor: actorFromUser(user),
+    target: { type: "sponsor", id: sponsor.id, label: sponsor.name },
+    meta: { yearId },
+  });
   after(() => triggerSiteDeploy(`sponsor ${sponsor.id} created`));
 
   return NextResponse.json(sponsor, { status: 201 });
