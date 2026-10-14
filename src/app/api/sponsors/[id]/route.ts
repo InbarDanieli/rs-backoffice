@@ -6,6 +6,7 @@ import {
   isFullSponsorProfilePayload,
 } from "@/lib/sponsor-validation";
 import { triggerSiteDeploy } from "@/lib/github/deploy";
+import { actorFromUser, diffFields, logAudit, pickFields } from "@/lib/audit";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -26,7 +27,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  await verifySession();
+  const { user } = await verifySession();
 
   const { id } = await params;
   const sponsor = await findSponsorById(id);
@@ -53,6 +54,17 @@ export async function PATCH(
   after(() => triggerSiteDeploy(`sponsor ${id} updated`));
 
   const updated = await findSponsorById(id);
+  if (updated) {
+    const changes = diffFields(sponsor, pickFields(updated, Object.keys(body ?? {})));
+    if (changes.length > 0) {
+      await logAudit({
+        action: "sponsor.updated",
+        actor: actorFromUser(user),
+        target: { type: "sponsor", id, label: updated.name },
+        changes,
+      });
+    }
+  }
   return NextResponse.json(updated);
 }
 
@@ -60,13 +72,19 @@ export async function DELETE(
   _request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
-  await verifySession();
+  const { user } = await verifySession();
 
   const { id } = await params;
   const sponsor = await findSponsorById(id);
   if (!sponsor) return NextResponse.json({ error: "Sponsor not found" }, { status: 404 });
 
   await deleteSponsor(id);
+  await logAudit({
+    action: "sponsor.deleted",
+    actor: actorFromUser(user),
+    target: { type: "sponsor", id, label: sponsor.name },
+    meta: { yearId: sponsor.yearId, tier: sponsor.tier },
+  });
   after(() => triggerSiteDeploy(`sponsor ${id} deleted`));
 
   return NextResponse.json({ success: true });

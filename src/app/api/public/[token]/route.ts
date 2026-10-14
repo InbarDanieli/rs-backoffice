@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { findSponsorByToken, updateSponsor, type UpdatableSponsorFields } from "@/lib/sponsors";
 import { triggerSiteDeploy } from "@/lib/github/deploy";
+import { diffFields, logAudit, pickFields, publicActor } from "@/lib/audit";
 import {
   validateSponsorFields,
   isFullSponsorProfilePayload,
@@ -62,5 +63,17 @@ export async function PATCH(
   after(() => triggerSiteDeploy(`sponsor ${sponsor.id} updated via public link`));
 
   const updated = await findSponsorByToken(token);
+  if (updated) {
+    const changes = diffFields(sponsor, pickFields(updated, Object.keys(safeFields)));
+    if (changes.length > 0) {
+      await logAudit({
+        action: "sponsor.updated",
+        actor: publicActor("Public link"),
+        target: { type: "sponsor", id: sponsor.id, label: updated.name },
+        changes,
+        meta: { via: "public_link" },
+      });
+    }
+  }
   return NextResponse.json(updated);
 }

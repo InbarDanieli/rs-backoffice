@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findSponsorByToken, uploadSponsorImage } from "@/lib/sponsors";
+import { imageUploadMeta, logAudit, publicActor } from "@/lib/audit";
 
 interface RouteParams {
   params: Promise<{ token: string }>;
@@ -22,6 +23,13 @@ export async function POST(
   const body = await request.json().catch(() => null);
   const url = await uploadSponsorImage(sponsor.id, body);
   if (!url) return NextResponse.json({ error: "Invalid image upload" }, { status: 400 });
+
+  await logAudit({
+    action: "sponsor.image_uploaded",
+    actor: publicActor("Public link"),
+    target: { type: "sponsor", id: sponsor.id, label: sponsor.name },
+    meta: { ...imageUploadMeta(body, url), via: "public_link" },
+  });
 
   return NextResponse.json({ url });
 }

@@ -107,6 +107,7 @@ export const ROUTE_PERMISSIONS: Record<string, RouteConfig> = {
   "/admin/dashboard": { roles: "any-authenticated" },
   "/admin/members": { roles: ["admin"] },
   "/admin/sponsors": { roles: ["admin", "sponsor-manager"] },
+  "/admin/audit-logs": { roles: ["admin"] },
 
   // ---- Protected APIs (return 401/403 on failure) ----
   "/api/years": { roles: ["admin"], redirectToLogin: false },
@@ -148,6 +149,7 @@ export const ROUTE_PERMISSIONS: Record<string, RouteConfig> = {
     check: canReadUser,
   },
   "/api/deploy": { roles: "any-authenticated", redirectToLogin: false },
+  "/api/audit-logs": { roles: ["admin"], redirectToLogin: false },
   // ---- Explicitly public APIs ----
   "/api/auth/google": { roles: "public" },
   "/api/auth/callback/google": { roles: "public" },

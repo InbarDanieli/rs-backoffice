@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSession } from "@/lib/session";
-import { upsertUser } from "@/lib/users";
+import { findUserByEmail, upsertUser } from "@/lib/users";
+import { actorFromUser, logAudit, publicActor } from "@/lib/audit";
 import { findDefaultYear } from "@/lib/years";
 import { EMAILS } from "@/lib/share/emails";
 
@@ -29,13 +30,27 @@ function unauthorizedRedirect(appUrl: string): NextResponse {
   return response;
 }
 
+/** Records the failed sign-in attempt, then redirects to /admin/unauthorized. */
+async function denyLogin(
+  appUrl: string,
+  reason: string,
+  attemptedEmail?: string,
+): Promise<NextResponse> {
+  await logAudit({
+    action: "auth.login_failed",
+    actor: publicActor("Anonymous"),
+    meta: { reason, ...(attemptedEmail ? { attemptedEmail } : {}) },
+  });
+  return unauthorizedRedirect(appUrl);
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const appUrl = process.env.APP_URL;
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
   if (!appUrl || !clientId || !clientSecret) {
-    return unauthorizedRedirect(appUrl ?? request.url);
+    return denyLogin(appUrl ?? request.url, "server_misconfigured");
   }
 
   const { searchParams } = request.nextUrl;
@@ -43,12 +58,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const state = searchParams.get("state");
   const storedState = request.cookies.get("oauth_state")?.value;
 
+  // Not logged: anyone can hit this URL without a state cookie (bots, stale
+  // tabs), so recording it would let anonymous requests flood the audit log.
   if (!state || !storedState || state !== storedState) {
     return unauthorizedRedirect(appUrl);
   }
 
   if (!code) {
-    return unauthorizedRedirect(appUrl);
+    return denyLogin(appUrl, "missing_code");
   }
 
   const redirectUri = `${appUrl}/api/auth/callback/google`;
@@ -68,7 +85,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const tokenData = (await tokenResponse.json()) as GoogleTokenResponse;
 
   if (!tokenResponse.ok || !tokenData.access_token) {
-    return unauthorizedRedirect(appUrl);
+    return denyLogin(appUrl, "oauth_error");
   }
 
   const userInfoResponse = await fetch(
@@ -77,13 +94,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   );
 
   if (!userInfoResponse.ok) {
-    return unauthorizedRedirect(appUrl);
+    return denyLogin(appUrl, "oauth_error");
   }
 
   const userInfo = (await userInfoResponse.json()) as GoogleUserInfo;
 
   if (!userInfo.verified_email) {
-    return unauthorizedRedirect(appUrl);
+    return denyLogin(appUrl, "email_not_verified", userInfo.email?.toLowerCase());
   }
 
   const normalizedEmail = userInfo.email.toLowerCase();
@@ -101,9 +118,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   if (!isAllowed) {
-    return unauthorizedRedirect(appUrl);
+    return denyLogin(appUrl, "not_allowed", normalizedEmail);
   }
 
+  const existingUser = await findUserByEmail(userInfo.email);
   const dbUser = await upsertUser({
     email: userInfo.email,
     name: userInfo.name,
@@ -118,6 +136,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     sub: userInfo.sub,
     userId: dbUser.id,
     role: dbUser.role,
+  });
+
+  if (!existingUser) {
+    await logAudit({
+      action: "user.created",
+      actor: actorFromUser(dbUser),
+      target: { type: "user", id: dbUser.id, label: dbUser.email },
+      meta: { via: "first_login" },
+    });
+  }
+  await logAudit({
+    action: "auth.login",
+    actor: actorFromUser(dbUser),
+    target: { type: "user", id: dbUser.id, label: dbUser.email },
   });
 
   const response = NextResponse.redirect(new URL("/admin/dashboard", appUrl));
