@@ -248,6 +248,38 @@ export async function updateSponsor(
   }
 }
 
+const SPONSOR_IMAGE_KINDS = ["logo", "carousel", "testimonial"] as const;
+type SponsorImageKind = (typeof SPONSOR_IMAGE_KINDS)[number];
+const SPONSOR_IMAGE_DATA_URL_RE = /^data:image\/(webp|png|jpeg);base64,/;
+
+/**
+ * Uploads one sponsor image (sent as a data URL) to the assets repo and
+ * returns its URL. The edit form calls this once per new image before saving,
+ * so each request carries a single image and stays well under the request
+ * body limit. Returns null when the request body is invalid.
+ */
+export async function uploadSponsorImage(
+  sponsorId: string,
+  body: unknown,
+): Promise<string | null> {
+  if (typeof body !== "object" || body === null) return null;
+  const { kind, index, dataUrl } = body as Record<string, unknown>;
+  if (!SPONSOR_IMAGE_KINDS.includes(kind as SponsorImageKind)) return null;
+  if (typeof dataUrl !== "string" || !SPONSOR_IMAGE_DATA_URL_RE.test(dataUrl)) {
+    return null;
+  }
+  if (kind !== "logo" && !(Number.isInteger(index) && (index as number) >= 0)) {
+    return null;
+  }
+  return uploadImage({
+    entity: "sponsors",
+    entityId: sponsorId,
+    kind: kind as SponsorImageKind,
+    index: kind === "logo" ? undefined : (index as number),
+    dataUrl,
+  });
+}
+
 export async function deleteSponsor(id: string): Promise<void> {
   const existing = await findSponsorById(id);
   if (!existing) return;

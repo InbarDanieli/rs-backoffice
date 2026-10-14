@@ -114,6 +114,10 @@ export const ROUTE_PERMISSIONS: Record<string, RouteConfig> = {
     roles: ["admin", "sponsor-manager"],
     redirectToLogin: false,
   },
+  "/api/sponsors/[id]/images": {
+    roles: ["admin", "sponsor-manager"],
+    redirectToLogin: false,
+  },
   "/api/users": {
     perMethod: {
       GET: { roles: "public", redirectToLogin: false },
@@ -149,6 +153,7 @@ export const ROUTE_PERMISSIONS: Record<string, RouteConfig> = {
   "/api/auth/callback/google": { roles: "public" },
   "/api/auth/logout": { roles: "public" },
   "/api/public/[token]": { roles: "public" },
+  "/api/public/[token]/images": { roles: "public", redirectToLogin: false },
   "/api/public/sponsors": { roles: "public", redirectToLogin: false },
 };
 

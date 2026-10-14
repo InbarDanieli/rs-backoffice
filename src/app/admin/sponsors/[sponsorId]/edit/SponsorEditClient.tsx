@@ -34,14 +34,19 @@ interface SponsorEditClientProps {
 }
 
 // Resizes/compresses on the client before the image is sent to the server —
-// uncompressed phone photos (especially several carousel images at once)
-// easily exceed Vercel's 4.5MB serverless function request body limit and
-// the save fails with a 413 before it ever reaches the GitHub upload code.
+// uncompressed phone photos easily exceed Vercel's 4.5MB serverless function
+// request body limit and the upload fails with a 413. Images are uploaded one
+// per request on save (see uploadNewImages), so the limit applies per image.
+//
+// Browsers that can't encode WebP (Safari) silently return PNG instead, which
+// is far larger for photos — `fallbackType` picks the format used then. Keep
+// PNG where transparency matters (logos), JPEG for photos.
 function resizeImage(
   file: File,
   maxW: number,
   maxH: number,
   quality = 0.9,
+  fallbackType: "image/png" | "image/jpeg" = "image/png",
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -60,7 +65,12 @@ function resizeImage(
         return;
       }
       ctx.drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL("image/webp", quality));
+      const webp = canvas.toDataURL("image/webp", quality);
+      resolve(
+        webp.startsWith("data:image/webp")
+          ? webp
+          : canvas.toDataURL(fallbackType, quality),
+      );
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
@@ -174,6 +184,8 @@ export function SponsorEditClient({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [carouselError, setCarouselError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
   // List of human-readable problems to fix before saving, and a lookup of
@@ -212,12 +224,24 @@ export function SponsorEditClient({
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
 
-    const results = await Promise.all(
-      files
-        .slice(0, 8 - (carouselImages.length ?? 0))
-        .map((f) => resizeImage(f, 1280, 720, 0.88)),
+    const toAdd = files.slice(0, 8 - (carouselImages.length ?? 0));
+    const results = await Promise.allSettled(
+      toAdd.map((f) => resizeImage(f, 1920, 1080, 0.88, "image/jpeg")),
     );
-    updateField("carouselImages", [...carouselImages, ...results]);
+    const added: string[] = [];
+    const failed: string[] = [];
+    results.forEach((r, i) => {
+      if (r.status === "fulfilled") added.push(r.value);
+      else failed.push(toAdd[i].name);
+    });
+    if (added.length) {
+      updateField("carouselImages", [...carouselImages, ...added]);
+    }
+    setCarouselError(
+      failed.length
+        ? `Couldn't read ${failed.join(", ")}. Please use a JPG, PNG or WebP image.`
+        : null,
+    );
     e.target.value = "";
   }
 
@@ -316,6 +340,72 @@ export function SponsorEditClient({
   }
 
   // ── Save ─────────────────────────────────────────────────────────────────────
+  async function uploadImage(
+    kind: "logo" | "carousel" | "testimonial",
+    index: number,
+    dataUrl: string,
+  ): Promise<string> {
+    const res = await fetch(`${saveEndpoint}/images`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind, index, dataUrl }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      url?: string;
+      error?: string;
+    };
+    if (!res.ok || !data.url) {
+      throw new Error(data.error ?? `Image upload failed (${res.status})`);
+    }
+    return data.url;
+  }
+
+  // Uploads new images (still data URLs) one request at a time and swaps in
+  // their URLs, so the final save request stays small no matter how many
+  // images were added. Finished uploads are kept in state even if a later one
+  // fails, so retrying the save doesn't upload them again.
+  async function uploadNewImages(values: Sponsor): Promise<Sponsor> {
+    const isNew = (v: string | undefined) => !!v && v.startsWith("data:");
+    const total = [
+      values.logo,
+      ...values.carouselImages,
+      ...values.testimonials.map((t) => t.image),
+    ].filter(isNew).length;
+    let done = 0;
+    const upload = async (
+      kind: "logo" | "carousel" | "testimonial",
+      index: number,
+      value: string,
+    ) => {
+      if (!isNew(value)) return value;
+      setUploadProgress(`Uploading image ${++done} of ${total}…`);
+      return uploadImage(kind, index, value);
+    };
+
+    const next = {
+      logo: values.logo,
+      carouselImages: [...values.carouselImages],
+      testimonials: values.testimonials.map((t) => ({ ...t })),
+    };
+    try {
+      next.logo = await upload("logo", 0, values.logo);
+      for (let i = 0; i < next.carouselImages.length; i++) {
+        next.carouselImages[i] = await upload("carousel", i, next.carouselImages[i]);
+      }
+      for (let i = 0; i < next.testimonials.length; i++) {
+        next.testimonials[i].image = await upload(
+          "testimonial",
+          i,
+          next.testimonials[i].image,
+        );
+      }
+    } finally {
+      setUploadProgress(null);
+      setActiveDefaultValues((prev) => ({ ...prev, ...next }));
+    }
+    return { ...values, ...next };
+  }
+
   async function handleSave() {
     const { problems, invalid } = validate();
     if (problems.length > 0) {
@@ -334,12 +424,11 @@ export function SponsorEditClient({
     setSaved(false);
     setError(null);
     try {
+      const values = await uploadNewImages(activeDefaultValues);
       const res = await fetch(saveEndpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...activeDefaultValues,
-        }),
+        body: JSON.stringify(values),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -545,6 +634,11 @@ export function SponsorEditClient({
           At least 1 required, up to 8 images. Recommended 16:9 ratio.
           {` (${carouselImages.length}/8 added)`}
         </p>
+        {carouselError && (
+          <p className={styles.carouselError} role="alert">
+            {carouselError}
+          </p>
+        )}
         <input
           ref={carouselInputRef}
           type="file"
@@ -838,7 +932,7 @@ export function SponsorEditClient({
           onClick={handleSave}
           disabled={saving || saved || !isDirty}
         >
-          {saving ? "Saving…" : saved ? "Saved!" : "Save"}
+          {saving ? (uploadProgress ?? "Saving…") : saved ? "Saved!" : "Save"}
         </button>
       </div>
 
