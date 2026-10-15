@@ -27,7 +27,7 @@ export const AUDIT_ACTIONS = {
   "sponsor.created": { label: "Sponsor created", category: "sponsors" },
   "sponsor.updated": { label: "Sponsor updated", category: "sponsors" },
   "sponsor.deleted": { label: "Sponsor deleted", category: "sponsors" },
-  "sponsor.image_uploaded": { label: "Sponsor image uploaded", category: "sponsors" },
+  "sponsor.image_upload_failed": { label: "Sponsor image upload failed", category: "sponsors" },
   "sponsor.public_link_created": { label: "Public link created", category: "sponsors" },
   "sponsor.public_link_revoked": { label: "Public link revoked", category: "sponsors" },
 

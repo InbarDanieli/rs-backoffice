@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth/dal";
 import { findSponsorById, uploadSponsorImage } from "@/lib/sponsors";
-import { actorFromUser, imageUploadMeta, logAudit } from "@/lib/audit";
+import { actorFromUser, imageUploadFailureMeta, logAudit } from "@/lib/audit";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -19,15 +19,27 @@ export async function POST(
   if (!sponsor) return NextResponse.json({ error: "Sponsor not found" }, { status: 404 });
 
   const body = await request.json().catch(() => null);
-  const url = await uploadSponsorImage(sponsor.id, body);
-  if (!url) return NextResponse.json({ error: "Invalid image upload" }, { status: 400 });
+  // Only failures are audited — successful uploads are recorded by the
+  // sponsor.updated entry that saves the new URL.
+  const logFailure = (error?: unknown) =>
+    logAudit({
+      action: "sponsor.image_upload_failed",
+      actor: actorFromUser(user),
+      target: { type: "sponsor", id: sponsor.id, label: sponsor.name },
+      meta: imageUploadFailureMeta(body, error),
+    });
 
-  await logAudit({
-    action: "sponsor.image_uploaded",
-    actor: actorFromUser(user),
-    target: { type: "sponsor", id: sponsor.id, label: sponsor.name },
-    meta: imageUploadMeta(body, url),
-  });
+  let url: string | null;
+  try {
+    url = await uploadSponsorImage(sponsor.id, body);
+  } catch (err) {
+    await logFailure(err);
+    throw err;
+  }
+  if (!url) {
+    await logFailure();
+    return NextResponse.json({ error: "Invalid image upload" }, { status: 400 });
+  }
 
   return NextResponse.json({ url });
 }

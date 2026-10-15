@@ -104,8 +104,10 @@ function summarize(entry: AuditLogEntry): string {
       return `${meta.count} members in new order`;
     case "year.deleted":
       return `Had ${meta.memberCount ?? 0} members`;
-    case "sponsor.image_uploaded":
-      return `${humanizeField(String(meta.kind ?? "image"))}${typeof meta.index === "number" ? ` #${meta.index + 1}` : ""}`;
+    case "sponsor.image_upload_failed": {
+      const image = `${humanizeField(String(meta.kind ?? "image"))}${typeof meta.index === "number" ? ` #${meta.index + 1}` : ""}`;
+      return meta.reason === "upload_error" ? `${image}: ${meta.error ?? "upload error"}` : `${image}: invalid request`;
+    }
     case "sponsor.public_link_created":
       return `Valid for ${meta.ttlDays} day${meta.ttlDays === 1 ? "" : "s"}`;
     case "deploy.triggered":

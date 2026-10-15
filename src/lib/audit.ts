@@ -138,10 +138,18 @@ export function pickFields(obj: object, keys: string[]): Record<string, unknown>
   return Object.fromEntries(keys.filter((k) => k in src).map((k) => [k, src[k]]));
 }
 
-/** Meta for an image upload request body (`{ kind, index }`) — never the image data. */
-export function imageUploadMeta(body: unknown, url: string): Record<string, unknown> {
-  const { kind, index } = (body ?? {}) as Record<string, unknown>;
-  return { kind, ...(typeof index === "number" ? { index } : {}), url };
+/**
+ * Meta for a failed image upload: the request's `{ kind, index }` (never the
+ * image data) plus why it failed.
+ */
+export function imageUploadFailureMeta(body: unknown, error?: unknown): Record<string, unknown> {
+  const { kind, index } = (typeof body === "object" && body !== null ? body : {}) as Record<string, unknown>;
+  return {
+    kind,
+    ...(typeof index === "number" ? { index } : {}),
+    reason: error === undefined ? "invalid_request" : "upload_error",
+    ...(error !== undefined ? { error: error instanceof Error ? error.message : String(error) } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------
