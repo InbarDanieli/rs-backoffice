@@ -436,6 +436,12 @@ export function SponsorEditClient({
           (data as { error?: string }).error ?? `Error ${res.status}`,
         );
       }
+      // The next save must be based on the version we just wrote, or the
+      // server will reject it as out of date.
+      const updated = (await res.json().catch(() => null)) as Sponsor | null;
+      if (updated?.updatedAt) {
+        setActiveDefaultValues((prev) => ({ ...prev, updatedAt: updated.updatedAt }));
+      }
       setTimeout(() => {
         setSaved(false)
       }, 5000);

@@ -37,7 +37,7 @@ export async function PATCH(
   const sponsor = await resolveSponsor(token);
   if (!sponsor) return NextResponse.json({ error: "Link not found or expired" }, { status: 404 });
 
-  const body = (await request.json()) as Partial<UpdatableSponsorFields>;
+  const body = (await request.json()) as Partial<UpdatableSponsorFields> & { updatedAt?: unknown };
 
   // Reject incomplete profile submissions (backstop for the client-side form).
   if (isFullSponsorProfilePayload(body)) {
@@ -59,7 +59,27 @@ export async function PATCH(
   delete safeFields.publicToken;
   delete safeFields.publicTokenExpiresAt;
 
-  await updateSponsor(sponsor.id, safeFields as Partial<UpdatableSponsorFields>);
+  delete safeFields.updatedAt;
+
+  // The edit form sends the sponsor's `updatedAt` as it loaded it; that's the
+  // version this save is based on.
+  const expectedUpdatedAt = typeof body.updatedAt === "string" ? body.updatedAt : undefined;
+  const result = await updateSponsor(
+    sponsor.id,
+    safeFields as Partial<UpdatableSponsorFields>,
+    expectedUpdatedAt,
+  );
+  if (result === "not_found") return NextResponse.json({ error: "Link not found or expired" }, { status: 404 });
+  if (result === "stale") {
+    return NextResponse.json(
+      {
+        error:
+          "This sponsor was changed by someone else since you opened this page. Reload to see the latest version — your changes were not saved.",
+        code: "stale",
+      },
+      { status: 409 },
+    );
+  }
   after(() => triggerSiteDeploy(`sponsor ${sponsor.id} updated via public link`));
 
   const updated = await findSponsorByToken(token);

@@ -50,7 +50,21 @@ export async function PATCH(
     }
   }
 
-  await updateSponsor(id, body);
+  // The edit form sends the sponsor's `updatedAt` as it loaded it; that's the
+  // version this save is based on.
+  const { updatedAt: expectedUpdatedAt, ...fields } = body as Partial<UpdatableSponsorFields> & { updatedAt?: string };
+  const result = await updateSponsor(id, fields, expectedUpdatedAt);
+  if (result === "not_found") return NextResponse.json({ error: "Sponsor not found" }, { status: 404 });
+  if (result === "stale") {
+    return NextResponse.json(
+      {
+        error:
+          "This sponsor was changed by someone else since you opened this page. Reload to see the latest version — your changes were not saved.",
+        code: "stale",
+      },
+      { status: 409 },
+    );
+  }
   after(() => triggerSiteDeploy(`sponsor ${id} updated`));
 
   const updated = await findSponsorById(id);

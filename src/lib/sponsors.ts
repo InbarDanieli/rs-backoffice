@@ -142,12 +142,39 @@ export async function createSponsor(
   return sponsor;
 }
 
+/**
+ * - "ok": saved.
+ * - "not_found": no sponsor with this id.
+ * - "stale": the save was based on an out-of-date copy of the sponsor
+ *   (someone else saved since the form was loaded). Nothing was written.
+ */
+export type UpdateSponsorResult = "ok" | "not_found" | "stale";
+
+const IMAGE_FIELDS = ["logo", "carouselImages", "testimonials"] as const;
+
+/**
+ * `expectedUpdatedAt` is the sponsor's `updatedAt` as the editor loaded it.
+ * Saves that touch images must pass it; if the sponsor changed since, the save
+ * is rejected as "stale" so an old open tab can't revert newer data (and have
+ * the newer images deleted as orphans).
+ */
 export async function updateSponsor(
   id: string,
   fields: Partial<UpdatableSponsorFields>,
-): Promise<void> {
+  expectedUpdatedAt?: string | Date,
+): Promise<UpdateSponsorResult> {
   const existing = await findSponsorById(id);
-  if (!existing) return;
+  if (!existing) return "not_found";
+
+  const touchesImages = IMAGE_FIELDS.some((f) => fields[f] !== undefined);
+  if (touchesImages && !expectedUpdatedAt) return "stale";
+  if (
+    expectedUpdatedAt &&
+    new Date(expectedUpdatedAt).getTime() !==
+      new Date(existing.updatedAt).getTime()
+  ) {
+    return "stale";
+  }
 
   const next: Partial<UpdatableSponsorFields> = { ...fields };
   const toDelete: string[] = [];
@@ -227,8 +254,9 @@ export async function updateSponsor(
 
   const now = new Date();
   const col = await getCollection();
-  await col.updateOne(
-    { id },
+  // Only write if nobody saved since we read `existing` above.
+  const res = await col.updateOne(
+    existing.updatedAt ? { id, updatedAt: existing.updatedAt } : { id },
     {
       $set: {
         ...next,
@@ -237,6 +265,7 @@ export async function updateSponsor(
       },
     },
   );
+  if (res.matchedCount === 0) return "stale";
 
   if (toDelete.length > 0) {
     const results = await Promise.allSettled(toDelete.map(deleteImage));
@@ -246,6 +275,7 @@ export async function updateSponsor(
       }
     }
   }
+  return "ok";
 }
 
 const SPONSOR_IMAGE_KINDS = ["logo", "carousel", "testimonial"] as const;
