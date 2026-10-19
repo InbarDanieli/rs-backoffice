@@ -576,8 +576,9 @@ export function SponsorEditClient({
           </button>
           <div className={styles.logoInfo}>
             <p className={styles.logoHint}>
-              PNG with transparency recommended. Will be displayed against light
-              and dark backgrounds.
+              Must be a <strong>PNG with a transparent background</strong>. Logos with a solid
+              background may not look good on the website, which displays them
+              against light and dark backgrounds.
             </p>
             <button
               type="button"
