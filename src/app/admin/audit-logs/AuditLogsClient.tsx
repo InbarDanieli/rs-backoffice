@@ -210,8 +210,8 @@ function EntryDetails({ entry }: { entry: AuditLogEntry }) {
             {entry.changes.map((change) => (
               <tr key={change.field}>
                 <td className={styles.diffField}>{humanizeField(change.field)}</td>
-                <td className={styles.diffBefore}><DiffValue value={change.before} /></td>
-                <td className={styles.diffAfter}><DiffValue value={change.after} /></td>
+                <td className={styles.diffBefore} data-label="Before"><DiffValue value={change.before} /></td>
+                <td className={styles.diffAfter} data-label="After"><DiffValue value={change.after} /></td>
               </tr>
             ))}
           </tbody>
@@ -393,18 +393,20 @@ export function AuditLogsClient({ actors }: AuditLogsClientProps) {
             aria-label="Search audit logs"
           />
         </div>
-        <Select
-          options={[{ value: "", label: "All categories" }, ...AUDIT_CATEGORIES]}
-          value={category}
-          onChange={(value) => {
-            // Drop an action filter that doesn't belong to the new category.
-            const keepAction = action && (!value || AUDIT_ACTIONS[action as AuditAction]?.category === value);
-            updateParams({ category: value, action: keepAction ? action : "" });
-          }}
-          width="11rem"
-        />
-        <Select options={actionOptions} value={action} onChange={(value) => updateParams({ action: value })} width="13rem" />
-        <Select options={actorOptions} value={actor} onChange={(value) => updateParams({ actor: value })} width="14rem" />
+        <div className={styles.filterSelects}>
+          <Select
+            options={[{ value: "", label: "All categories" }, ...AUDIT_CATEGORIES]}
+            value={category}
+            onChange={(value) => {
+              // Drop an action filter that doesn't belong to the new category.
+              const keepAction = action && (!value || AUDIT_ACTIONS[action as AuditAction]?.category === value);
+              updateParams({ category: value, action: keepAction ? action : "" });
+            }}
+            width="11rem"
+          />
+          <Select options={actionOptions} value={action} onChange={(value) => updateParams({ action: value })} width="13rem" />
+          <Select options={actorOptions} value={actor} onChange={(value) => updateParams({ actor: value })} width="14rem" />
+        </div>
       </div>
 
       <div className={styles.toolbar}>
@@ -529,7 +531,7 @@ export function AuditLogsClient({ actors }: AuditLogsClientProps) {
                       <td className={styles.colTime} title={formatTimestamp(entry.createdAt)}>
                         {result ? formatRelative(entry.createdAt, result.now) : ""}
                       </td>
-                      <td>
+                      <td className={styles.colWho}>
                         {entry.actor.type === "user" ? (
                           <button
                             type="button"
@@ -557,10 +559,10 @@ export function AuditLogsClient({ actors }: AuditLogsClientProps) {
                           </button>
                         )}
                       </td>
-                      <td>
+                      <td className={styles.colEvent}>
                         <span className={`${styles.badge} ${styles[`badge_${def.category}`]}`}>{def.label}</span>
                       </td>
-                      <td>
+                      <td className={`${styles.colTarget} ${entry.target ? "" : styles.cellEmpty}`}>
                         {entry.target ? (
                           <span className={styles.targetCell}>
                             <button
@@ -589,7 +591,7 @@ export function AuditLogsClient({ actors }: AuditLogsClientProps) {
                           <span className={styles.muted}>—</span>
                         )}
                       </td>
-                      <td className={styles.colSummary}>{summary || <span className={styles.muted}>—</span>}</td>
+                      <td className={`${styles.colSummary} ${summary ? "" : styles.cellEmpty}`}>{summary || <span className={styles.muted}>—</span>}</td>
                     </tr>
                     {open && (
                       <tr className={styles.detailsRow}>
