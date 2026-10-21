@@ -89,7 +89,11 @@ function toSponsor(doc: WithId<Sponsor>): Sponsor {
 
 export async function listSponsorsByYear(yearId: string): Promise<Sponsor[]> {
   const col = await getCollection();
-  const docs = await col.find({ yearId }).sort({ name: 1 }).toArray();
+  const docs = await col
+    .find({ yearId })
+    .collation({ locale: "en", strength: 1, numericOrdering: true })
+    .sort({ name: 1 })
+    .toArray();
   return docs.map(toSponsor);
 }
 
