@@ -610,7 +610,7 @@ export function SponsorEditClient({
           </button>
           <div className={styles.logoInfo}>
             <p className={styles.logoHint}>
-              <strong>SVG files only.</strong> Other formats, such as PNG or JPG,
+              <strong>SVG files only. </strong> Other formats, such as PNG or JPG,
               can&apos;t be uploaded. Use a transparent background: logos with a solid
               background may not look good on the website, which displays them
               against light and dark backgrounds.
