@@ -1,4 +1,5 @@
 import "server-only";
+import { InvalidSvgError, MAX_SVG_BYTES, sanitizeSvg } from "@/lib/svg-sanitize";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -183,6 +184,10 @@ function extractExtension(dataUrl: string): string {
   return subtype;
 }
 
+export function isSvgDataUrl(value: string | undefined | null): boolean {
+  return isDataUrl(value) && extractExtension(value as string) === "svg";
+}
+
 function buildFilename(
   kind: ImageKind,
   index: number | undefined,
@@ -207,7 +212,12 @@ export async function uploadImage(args: UploadArgs): Promise<string> {
   const ext = extractExtension(args.dataUrl);
   const filename = buildFilename(args.kind, args.index, ext);
   const path = `${args.entity}/${args.entityId}/${filename}`;
-  const content = stripDataUrlPrefix(args.dataUrl);
+  let content = stripDataUrlPrefix(args.dataUrl);
+  if (ext === "svg") {
+    const svg = Buffer.from(content, "base64");
+    if (svg.length > MAX_SVG_BYTES) throw new InvalidSvgError("SVG is too large");
+    content = Buffer.from(await sanitizeSvg(svg.toString("utf8"))).toString("base64");
+  }
 
   await retryOnTransient(() =>
     apiFetch(`/repos/${owner}/${repo}/contents/${encodePath(path)}`, {

@@ -6,8 +6,10 @@ import {
   deleteImage,
   isDataUrl,
   isOwnedRawUrl,
+  isSvgDataUrl,
 } from "./github/images";
 import { isFullSponsorProfilePayload } from "./sponsor-validation";
+import { InvalidSvgError } from "./svg-sanitize";
 
 export interface SponsorPosition {
   name: string;
@@ -30,7 +32,7 @@ export interface Sponsor {
   name: string; // company name
   website: string;
   description: string; // free text, up to 3 paragraphs
-  logo: string; // base64 PNG with transparency
+  logo: string; // SVG URL (or a data URL before upload); older logos may be PNG/WebP
   carouselImages: string[]; // up to 8, base64 16:9
   linkedin: string;
   bluesky: string;
@@ -152,9 +154,23 @@ export async function createSponsor(
  * - "stale": the save was based on an out-of-date copy of the sponsor
  *   (someone else saved since the form was loaded). Nothing was written.
  */
-export type UpdateSponsorResult = "ok" | "not_found" | "stale";
+export type UpdateSponsorResult = "ok" | "not_found" | "stale" | "invalid_image";
 
 const IMAGE_FIELDS = ["logo", "carouselImages", "testimonials"] as const;
+
+/**
+ * A logo change must be an SVG: a new upload, or one already in the assets repo.
+ * An unchanged logo always passes so sponsors with an older PNG/WebP logo can
+ * still save the rest of their profile.
+ */
+function isAllowedLogo(value: string, current: string): boolean {
+  return (
+    value === "" ||
+    value === current ||
+    isSvgDataUrl(value) ||
+    (isOwnedRawUrl(value) && /\.svg$/i.test(value))
+  );
+}
 
 /**
  * `expectedUpdatedAt` is the sponsor's `updatedAt` as the editor loaded it.
@@ -180,17 +196,32 @@ export async function updateSponsor(
     return "stale";
   }
 
+  // Logos must be SVG and other images must not be. Checked before any upload
+  // so a refused save leaves no stray files in the assets repo.
+  if (
+    (fields.logo !== undefined && !isAllowedLogo(fields.logo, existing.logo)) ||
+    fields.carouselImages?.some(isSvgDataUrl) ||
+    fields.testimonials?.some((t) => isSvgDataUrl(t.image))
+  ) {
+    return "invalid_image";
+  }
+
   const next: Partial<UpdatableSponsorFields> = { ...fields };
   const toDelete: string[] = [];
 
   if (fields.logo !== undefined) {
     if (isDataUrl(fields.logo)) {
-      next.logo = await uploadImage({
-        entity: "sponsors",
-        entityId: id,
-        kind: "logo",
-        dataUrl: fields.logo,
-      });
+      try {
+        next.logo = await uploadImage({
+          entity: "sponsors",
+          entityId: id,
+          kind: "logo",
+          dataUrl: fields.logo,
+        });
+      } catch (err) {
+        if (err instanceof InvalidSvgError) return "invalid_image";
+        throw err;
+      }
       if (existing.logo && isOwnedRawUrl(existing.logo)) {
         toDelete.push(existing.logo);
       }
@@ -284,7 +315,7 @@ export async function updateSponsor(
 
 const SPONSOR_IMAGE_KINDS = ["logo", "carousel", "testimonial"] as const;
 type SponsorImageKind = (typeof SPONSOR_IMAGE_KINDS)[number];
-const SPONSOR_IMAGE_DATA_URL_RE = /^data:image\/(webp|png|jpeg);base64,/;
+const SPONSOR_IMAGE_DATA_URL_RE = /^data:image\/(webp|png|jpeg|svg\+xml);base64,/;
 
 /**
  * Uploads one sponsor image (sent as a data URL) to the assets repo and
@@ -302,16 +333,23 @@ export async function uploadSponsorImage(
   if (typeof dataUrl !== "string" || !SPONSOR_IMAGE_DATA_URL_RE.test(dataUrl)) {
     return null;
   }
+  // Logos must be SVG, and other images must not be.
+  if ((kind === "logo") !== isSvgDataUrl(dataUrl)) return null;
   if (kind !== "logo" && !(Number.isInteger(index) && (index as number) >= 0)) {
     return null;
   }
-  return uploadImage({
-    entity: "sponsors",
-    entityId: sponsorId,
-    kind: kind as SponsorImageKind,
-    index: kind === "logo" ? undefined : (index as number),
-    dataUrl,
-  });
+  try {
+    return await uploadImage({
+      entity: "sponsors",
+      entityId: sponsorId,
+      kind: kind as SponsorImageKind,
+      index: kind === "logo" ? undefined : (index as number),
+      dataUrl,
+    });
+  } catch (err) {
+    if (err instanceof InvalidSvgError) return null;
+    throw err;
+  }
 }
 
 export async function deleteSponsor(id: string): Promise<void> {

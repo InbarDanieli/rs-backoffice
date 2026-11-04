@@ -40,7 +40,7 @@ interface SponsorEditClientProps {
 //
 // Browsers that can't encode WebP (Safari) silently return PNG instead, which
 // is far larger for photos — `fallbackType` picks the format used then. Keep
-// PNG where transparency matters (logos), JPEG for photos.
+// PNG where transparency matters, JPEG for photos.
 function resizeImage(
   file: File,
   maxW: number,
@@ -77,6 +77,30 @@ function resizeImage(
       reject(new Error("Load failed"));
     };
     img.src = url;
+  });
+}
+
+const MAX_SVG_BYTES = 1024 * 1024;
+
+function isSvgFile(file: File): boolean {
+  return file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg");
+}
+
+// SVGs skip resizeImage so they stay vector. The server sanitizes them on upload.
+function readSvg(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Read failed"));
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      // Loading it catches broken files before they reach the preview.
+      const img = new window.Image();
+      img.onload = () => resolve(dataUrl);
+      img.onerror = () => reject(new Error("Load failed"));
+      img.src = dataUrl;
+    };
+    // Some systems report no type for .svg files, so set it explicitly.
+    reader.readAsDataURL(new Blob([file], { type: "image/svg+xml" }));
   });
 }
 
@@ -184,6 +208,7 @@ export function SponsorEditClient({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
   const [carouselError, setCarouselError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -210,13 +235,21 @@ export function SponsorEditClient({
   async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    try {
-      const dataUrl = await resizeImage(file, 512, 512, 0.9);
-      updateField("logo", dataUrl);
-    } catch {
-      /* ignore */
-    }
     e.target.value = "";
+    if (!isSvgFile(file)) {
+      setLogoError(`${file.name} isn't an SVG. Please upload your logo as an SVG file.`);
+      return;
+    }
+    if (file.size > MAX_SVG_BYTES) {
+      setLogoError(`${file.name} is too large. SVG logos can be up to 1MB.`);
+      return;
+    }
+    try {
+      updateField("logo", await readSvg(file));
+      setLogoError(null);
+    } catch {
+      setLogoError(`Couldn't read ${file.name}. Please check that it's a valid SVG file.`);
+    }
   }
 
   // ── Carousel ────────────────────────────────────────────────────────────────
@@ -460,6 +493,7 @@ export function SponsorEditClient({
 
   function handleDiscard() {
     setActiveDefaultValues({ ...sponsor });
+    setLogoError(null);
     setIsDirty(false);
     setIsOpen(false);
   }
@@ -576,7 +610,8 @@ export function SponsorEditClient({
           </button>
           <div className={styles.logoInfo}>
             <p className={styles.logoHint}>
-              Must be a <strong>PNG with a transparent background</strong>. Logos with a solid
+              <strong>SVG files only. </strong> Other formats, such as PNG or JPG,
+              can&apos;t be uploaded. Use a transparent background: logos with a solid
               background may not look good on the website, which displays them
               against light and dark backgrounds.
             </p>
@@ -591,11 +626,16 @@ export function SponsorEditClient({
           <input
             ref={logoInputRef}
             type="file"
-            accept="image/png,image/*"
+            accept=".svg,image/svg+xml"
             style={{ display: "none" }}
             onChange={handleLogoChange}
           />
         </div>
+        {logoError && (
+          <p className={styles.carouselError} role="alert">
+            {logoError}
+          </p>
+        )}
       </div>
 
       {/* ── Carousel ── */}

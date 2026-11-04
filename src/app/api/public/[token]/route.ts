@@ -80,6 +80,9 @@ export async function PATCH(
       { status: 409 },
     );
   }
+  if (result === "invalid_image") {
+    return NextResponse.json({ error: "Invalid image upload" }, { status: 400 });
+  }
   after(() => triggerSiteDeploy(`sponsor ${sponsor.id} updated via public link`));
 
   const updated = await findSponsorByToken(token);
