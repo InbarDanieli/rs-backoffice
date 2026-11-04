@@ -139,12 +139,11 @@ export function validateSponsorFields(
     if (
       !(t.authorName ?? "").trim() ||
       !(t.title ?? "").trim() ||
-      !(t.testimonial ?? "").trim() ||
-      !(t.image ?? "").trim()
+      !(t.testimonial ?? "").trim()
     ) {
       errors.push({
         field: `testimonial-${i}`,
-        message: `Testimonial ${i + 1}: please fill in the photo, author name, title, and testimonial, or remove it.`,
+        message: `Testimonial ${i + 1}: please fill in the author name, title, and testimonial, or remove it.`,
       });
     }
   });

@@ -876,7 +876,7 @@ export function SponsorEditClient({
             <div className={styles.testimonialAvatar}>
               <button
                 type="button"
-                className={`${styles.testimonialAvatarPreview} ${invalidFields[`testimonial-${idx}`] && !t.image ? styles.inputError : ""}`}
+                className={styles.testimonialAvatarPreview}
                 onClick={() => testimonialInputRefs.current[idx]?.click()}
                 aria-label="Change testimonial photo"
               >
