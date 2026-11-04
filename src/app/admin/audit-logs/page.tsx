@@ -6,6 +6,7 @@ import { listYears, getActiveYear } from "@/lib/years";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { buildAdminNav } from "@/components/layout/adminNav";
 import { AdminPageLayout } from "@/components/layout/AdminPageLayout";
+import { ExportDataButton } from "@/components/ui/ExportDataButton";
 import { AuditLogsClient } from "./AuditLogsClient";
 
 export default async function AuditLogsPage() {
@@ -24,6 +25,12 @@ export default async function AuditLogsPage() {
       title="Audit Logs"
       subtitle="Every change and sign-in across the backoffice: who did it, what changed, and when. Entries are kept for one year."
       maxWidth="72rem"
+      actions={
+        <>
+          <ExportDataButton scope="website" />
+          <ExportDataButton scope="all" />
+        </>
+      }
     >
       {/* useSearchParams needs a Suspense boundary for production builds. */}
       <Suspense fallback={null}>

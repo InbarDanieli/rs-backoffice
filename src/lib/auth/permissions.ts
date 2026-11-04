@@ -150,6 +150,7 @@ export const ROUTE_PERMISSIONS: Record<string, RouteConfig> = {
   },
   "/api/deploy": { roles: "any-authenticated", redirectToLogin: false },
   "/api/audit-logs": { roles: ["admin"], redirectToLogin: false },
+  "/api/export": { roles: ["admin"], redirectToLogin: false },
   // ---- Explicitly public APIs ----
   "/api/auth/google": { roles: "public" },
   "/api/auth/callback/google": { roles: "public" },
